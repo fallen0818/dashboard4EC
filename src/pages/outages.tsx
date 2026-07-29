@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useOutages } from '../hooks/useOutages';
-import { createOutage } from '../services/outagesRepository';
+import { createOutage, updateOutage, deleteOutage, OutageRow } from '../services/outagesRepository';
 import { supabase } from '../services/supabaseClient';
 
 interface BranchOption {
@@ -37,6 +37,8 @@ export default function OutagesPage() {
 
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const [branchId, setBranchId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -54,32 +56,65 @@ export default function OutagesPage() {
       .then(({ data }) => setBranches(data ?? []));
   }, []);
 
+  function resetForm() {
+    setBranchId('');
+    setDurationMinutes('');
+    setCause('');
+    setAreaAffected('');
+    setConsumersAffected('');
+    setEditingId(null);
+    setShowForm(false);
+  }
+
+  function startEdit(row: OutageRow) {
+    setEditingId(row.id);
+    setBranchId(row.branch_id);
+    setDate(row.date);
+    setDurationMinutes(String(row.duration_minutes));
+    setCause(row.cause ?? '');
+    setAreaAffected(row.area_affected ?? '');
+    setConsumersAffected(String(row.consumers_affected));
+    setShowForm(true);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setFormError(null);
     try {
-      await createOutage({
+      const entry = {
         branch_id: branchId,
         date,
         duration_minutes: Number(durationMinutes) || 0,
         cause,
         area_affected: areaAffected,
         consumers_affected: Number(consumersAffected) || 0,
-      });
-      setBranchId('');
-      setDurationMinutes('');
-      setCause('');
-      setAreaAffected('');
-      setConsumersAffected('');
-      setShowForm(false);
+      };
+      if (editingId) {
+        await updateOutage(editingId, entry);
+      } else {
+        await createOutage(entry);
+      }
+      resetForm();
       await refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to log outage');
+      setFormError(err instanceof Error ? err.message : 'Failed to save outage');
     } finally {
       setSubmitting(false);
     }
   }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteOutage(id);
+      await refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete outage');
+    } finally {
+      setConfirmingId(null);
+    }
+  }
+
 
   if (loading) {
     return (
@@ -122,7 +157,7 @@ export default function OutagesPage() {
             <h1 className="text-3xl font-semibold tracking-tight">Outages</h1>
           </div>
           <button
-            onClick={() => setShowForm((s) => !s)}
+            onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] hover:text-[#E8E6E1] border border-[#2A2E32] rounded px-3 py-1.5"
           >
             {showForm ? 'Cancel' : '+ Log Outage'}
@@ -264,6 +299,7 @@ export default function OutagesPage() {
                 <th className="text-left py-2 font-normal">Cause</th>
                 <th className="text-right py-2 font-normal">Duration</th>
                 <th className="text-right py-2 font-normal">Consumers</th>
+                <th className="text-right py-2 font-normal">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -278,6 +314,17 @@ export default function OutagesPage() {
                   </td>
                   <td className="py-2.5 text-right font-mono tabular-nums">
                     {r.consumers_affected.toLocaleString()}
+                  </td>
+                  <td className="py-2.5 text-right whitespace-nowrap">
+                    <button onClick={() => startEdit(r)} className="font-mono text-xs text-[#8A8F94] hover:text-[#E8E6E1] mr-3">Edit</button>
+                    {confirmingId === r.id ? (
+                      <>
+                        <button onClick={() => handleDelete(r.id)} className="font-mono text-xs text-[#D9705C] mr-2">Confirm</button>
+                        <button onClick={() => setConfirmingId(null)} className="font-mono text-xs text-[#8A8F94]">Cancel</button>
+                      </>
+                    ) : (
+                      <button onClick={() => setConfirmingId(r.id)} className="font-mono text-xs text-[#8A8F94] hover:text-[#D9705C]">Delete</button>
+                    )}
                   </td>
                 </tr>
               ))}

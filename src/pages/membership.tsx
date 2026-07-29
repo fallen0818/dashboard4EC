@@ -11,7 +11,11 @@ import {
   Cell,
 } from "recharts";
 import { useMembership } from "../hooks/useMembership";
-import { createMembership } from "../services/membershipRepository";
+import {
+  createMembership,
+  updateMembership,
+  deleteMembership,
+} from "../services/membershipRepository";
 import { supabase } from "../services/supabaseClient";
 
 function formatNumber(n: number): string {
@@ -58,6 +62,8 @@ export default function MembershipPage() {
 
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [branchId, setBranchId] = useState("");
   const [period, setPeriod] = useState(
     new Date().toISOString().slice(0, 8) + "01",
@@ -74,25 +80,56 @@ export default function MembershipPage() {
       .then(({ data }) => setBranches(data ?? []));
   }, []);
 
+  function resetForm() {
+    setBranchId("");
+    setConsumerCount("");
+    setConnectionType("residential");
+    setEditingId(null);
+    setShowForm(false);
+  }
+
+  function startEdit(row: (typeof rows)[number]) {
+    setEditingId(row.id);
+    setBranchId(row.branch_id);
+    setPeriod(row.period);
+    setConnectionType(row.connection_type);
+    setConsumerCount(String(row.consumer_count));
+    setShowForm(true);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setFormError(null);
     try {
-      await createMembership({
+      const entry = {
         branch_id: branchId,
         period,
         connection_type: connectionType,
         consumer_count: Number(consumerCount) || 0,
-      });
-      setBranchId("");
-      setConsumerCount("");
-      setShowForm(false);
+      };
+      if (editingId) {
+        await updateMembership(editingId, entry);
+      } else {
+        await createMembership(entry);
+      }
+      resetForm();
       await refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Failed to add entry");
+      setFormError(err instanceof Error ? err.message : "Failed to save entry");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteMembership(id);
+      await refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete entry");
+    } finally {
+      setConfirmingId(null);
     }
   }
 
@@ -143,7 +180,7 @@ export default function MembershipPage() {
             </h1>
           </div>
           <button
-            onClick={() => setShowForm((s) => !s)}
+            onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] hover:text-[#E8E6E1] border border-[#2A2E32] rounded px-3 py-1.5"
           >
             {showForm ? "Cancel" : "+ Add Entry"}
@@ -224,7 +261,11 @@ export default function MembershipPage() {
               disabled={submitting}
               className="bg-[#E8E6E1] text-[#0F1214] font-medium text-sm px-4 py-2 rounded hover:bg-white transition-colors disabled:opacity-50"
             >
-              {submitting ? "Adding…" : "Add Entry"}
+              {submitting
+                ? "Saving…"
+                : editingId
+                  ? "Update Entry"
+                  : "Add Entry"}
             </button>
           </form>
         )}
@@ -238,7 +279,6 @@ export default function MembershipPage() {
           </p>
         </div>
 
-        {/* By connection type */}
         <div className="border border-[#2A2E32] rounded-lg p-6 mb-6">
           <p className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] mb-4">
             By Connection Type
@@ -251,7 +291,7 @@ export default function MembershipPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#2A2E32" />
               <XAxis
                 dataKey="type"
-                tickFormatter={(t) => TYPE_LABELS[t] ?? t}
+                tickFormatter={(t) => TYPE_LABELS[String(t)] ?? String(t)}
                 stroke="#8A8F94"
                 fontSize={12}
                 fontFamily="monospace"
@@ -259,20 +299,11 @@ export default function MembershipPage() {
               <YAxis stroke="#8A8F94" fontSize={12} fontFamily="monospace" />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                formatter={(
-                  value:
-                    | string
-                    | number
-                    | readonly (string | number)[]
-                    | undefined,
-                ) => {
-                  const numericValue = Array.isArray(value) ? value[0] : value;
-                  return [
-                    formatNumber(Number(numericValue ?? 0)),
-                    "Consumers",
-                  ] as [string, string];
-                }}
-                labelFormatter={(t) => TYPE_LABELS[String(t)] ?? t}
+                formatter={(value: any) => [
+                  formatNumber(Number(value) || 0),
+                  "Consumers",
+                ]}
+                labelFormatter={(t) => TYPE_LABELS[String(t)] ?? String(t)}
               />
               <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                 {byType.map((_, i) => (
@@ -283,7 +314,6 @@ export default function MembershipPage() {
           </ResponsiveContainer>
         </div>
 
-        {/* By branch */}
         <div className="border border-[#2A2E32] rounded-lg p-6 mb-10">
           <p className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] mb-4">
             By Branch
@@ -303,26 +333,16 @@ export default function MembershipPage() {
               <YAxis stroke="#8A8F94" fontSize={12} fontFamily="monospace" />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                formatter={(
-                  value:
-                    | string
-                    | number
-                    | readonly (string | number)[]
-                    | undefined,
-                ) => {
-                  const numericValue = Array.isArray(value) ? value[0] : value;
-                  return [
-                    formatNumber(Number(numericValue ?? 0)),
-                    "Consumers",
-                  ] as [string, string];
-                }}
+                formatter={(value: any) => [
+                  formatNumber(Number(value) || 0),
+                  "Consumers",
+                ]}
               />
               <Bar dataKey="count" fill="#7FB88A" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Detail table */}
         <div>
           <p className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] mb-3">
             Detail by Branch and Connection Type
@@ -333,17 +353,49 @@ export default function MembershipPage() {
                 <th className="text-left py-2 font-normal">Branch</th>
                 <th className="text-left py-2 font-normal">Connection Type</th>
                 <th className="text-right py-2 font-normal">Consumers</th>
+                <th className="w-24"></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} className="border-b border-[#1E2225]">
+              {rows.map((r) => (
+                <tr key={r.id} className="border-b border-[#1E2225]">
                   <td className="py-2.5">{r.branch_name}</td>
                   <td className="py-2.5 text-[#8A8F94]">
                     {TYPE_LABELS[r.connection_type] ?? r.connection_type}
                   </td>
                   <td className="py-2.5 text-right font-mono tabular-nums">
                     {formatNumber(r.consumer_count)}
+                  </td>
+                  <td className="py-2.5 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => startEdit(r)}
+                      className="font-mono text-xs text-[#8A8F94] hover:text-[#E8E6E1] mr-3"
+                    >
+                      Edit
+                    </button>
+                    {confirmingId === r.id ? (
+                      <>
+                        <button
+                          onClick={() => handleDelete(r.id)}
+                          className="font-mono text-xs text-[#D9705C] mr-2"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setConfirmingId(null)}
+                          className="font-mono text-xs text-[#8A8F94]"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmingId(r.id)}
+                        className="font-mono text-xs text-[#8A8F94] hover:text-[#D9705C]"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

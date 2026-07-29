@@ -47,3 +47,13 @@ export async function createOutage(outage: NewOutage): Promise<void> {
   const { error } = await supabase.from('outages').insert(outage);
   if (error) throw new Error(`Failed to log outage: ${error.message}`);
 }
+
+export async function updateOutage(id: string, outage: NewOutage): Promise<void> {
+  const { error } = await supabase.from('outages').update(outage).eq('id', id);
+  if (error) throw new Error(`Failed to update outage: ${error.message}`);
+}
+
+export async function deleteOutage(id: string): Promise<void> {
+  const { error } = await supabase.from('outages').delete().eq('id', id);
+  if (error) throw new Error(`Failed to delete outage: ${error.message}`);
+}

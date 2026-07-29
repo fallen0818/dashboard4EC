@@ -11,7 +11,12 @@ import {
   Legend,
 } from "recharts";
 import { usePowerSupply } from "../hooks/usePowerSupply";
-import { createPowerSupply } from "../services/powerSupplyRepository";
+import {
+  createPowerSupply,
+  updatePowerSupply,
+  deletePowerSupply,
+  PowerSupplyRow,
+} from "../services/powerSupplyRepository";
 import { supabase } from "../services/supabaseClient";
 
 function formatNumber(n: number): string {
@@ -46,6 +51,8 @@ export default function PowerSupplyPage() {
 
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [branchId, setBranchId] = useState("");
   const [period, setPeriod] = useState(
     new Date().toISOString().slice(0, 8) + "01",
@@ -64,30 +71,62 @@ export default function PowerSupplyPage() {
       .then(({ data }) => setBranches(data ?? []));
   }, []);
 
+  function resetForm() {
+    setBranchId("");
+    setKwhPurchased("");
+    setCost("");
+    setKwhSold("");
+    setRevenue("");
+    setEditingId(null);
+    setShowForm(false);
+  }
+
+  function startEdit(row: PowerSupplyRow) {
+    setEditingId(row.id);
+    setBranchId(row.branch_id);
+    setPeriod(row.period);
+    setKwhPurchased(String(row.kwh_purchased));
+    setCost(String(row.purchased_power_cost));
+    setKwhSold(String(row.kwh_sold));
+    setRevenue(String(row.sales_revenue));
+    setShowForm(true);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setFormError(null);
     try {
-      await createPowerSupply({
+      const entry = {
         branch_id: branchId,
         period,
         kwh_purchased: Number(kwhPurchased) || 0,
         purchased_power_cost: Number(cost) || 0,
         kwh_sold: Number(kwhSold) || 0,
         sales_revenue: Number(revenue) || 0,
-      });
-      setBranchId("");
-      setKwhPurchased("");
-      setCost("");
-      setKwhSold("");
-      setRevenue("");
-      setShowForm(false);
+      };
+      if (editingId) {
+        await updatePowerSupply(editingId, entry);
+      } else {
+        await createPowerSupply(entry);
+      }
+      resetForm();
       await refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Failed to add entry");
+      setFormError(err instanceof Error ? err.message : "Failed to save entry");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deletePowerSupply(id);
+      await refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete entry");
+    } finally {
+      setConfirmingId(null);
     }
   }
 
@@ -138,7 +177,7 @@ export default function PowerSupplyPage() {
             </h1>
           </div>
           <button
-            onClick={() => setShowForm((s) => !s)}
+            onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] hover:text-[#E8E6E1] border border-[#2A2E32] rounded px-3 py-1.5"
           >
             {showForm ? "Cancel" : "+ Add Entry"}
@@ -242,7 +281,11 @@ export default function PowerSupplyPage() {
               disabled={submitting}
               className="bg-[#E8E6E1] text-[#0F1214] font-medium text-sm px-4 py-2 rounded hover:bg-white transition-colors disabled:opacity-50"
             >
-              {submitting ? "Adding…" : "Add Entry"}
+              {submitting
+                ? "Saving…"
+                : editingId
+                  ? "Update Entry"
+                  : "Add Entry"}
             </button>
           </form>
         )}
@@ -273,11 +316,9 @@ export default function PowerSupplyPage() {
               />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                labelFormatter={(label) =>
-                  typeof label === "string" ? formatMonth(label) : label
-                }
+                labelFormatter={(label) => formatMonth(String(label))}
                 formatter={(value: any, name: string | number | undefined) => [
-                  formatNumber(Number(value ?? 0)),
+                  formatNumber(Number(value)),
                   name ?? "",
                 ]}
               />
@@ -330,15 +371,8 @@ export default function PowerSupplyPage() {
               />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                labelFormatter={(label) =>
-                  typeof label === "string" ? formatMonth(label) : label
-                }
-                formatter={
-                  ((value: any, name: any) => {
-                    const v = Array.isArray(value) ? value[0] : value;
-                    return [formatCurrency(Number(v ?? 0)), name ?? ""];
-                  }) as any
-                }
+                labelFormatter={(label) => formatMonth(String(label))}
+                formatter={(value) => formatCurrency(Number(value))}
               />
               <Legend
                 wrapperStyle={{ fontFamily: "monospace", fontSize: 12 }}
@@ -378,13 +412,14 @@ export default function PowerSupplyPage() {
                 <th className="text-right py-2 font-normal">Cost</th>
                 <th className="text-right py-2 font-normal">Revenue</th>
                 <th className="text-right py-2 font-normal">Margin</th>
+                <th className="w-24"></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => {
+              {rows.map((r) => {
                 const margin = r.sales_revenue - r.purchased_power_cost;
                 return (
-                  <tr key={i} className="border-b border-[#1E2225]">
+                  <tr key={r.id} className="border-b border-[#1E2225]">
                     <td className="py-2.5 font-mono text-[#6B7075]">
                       {formatMonth(r.period)}
                     </td>
@@ -402,11 +437,40 @@ export default function PowerSupplyPage() {
                       {formatCurrency(r.sales_revenue)}
                     </td>
                     <td
-                      className={`py-2.5 text-right font-mono tabular-nums ${
-                        margin >= 0 ? "text-[#7FB88A]" : "text-[#D9705C]"
-                      }`}
+                      className={`py-2.5 text-right font-mono tabular-nums ${margin >= 0 ? "text-[#7FB88A]" : "text-[#D9705C]"}`}
                     >
                       {formatCurrency(margin)}
+                    </td>
+                    <td className="py-2.5 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => startEdit(r)}
+                        className="font-mono text-xs text-[#8A8F94] hover:text-[#E8E6E1] mr-3"
+                      >
+                        Edit
+                      </button>
+                      {confirmingId === r.id ? (
+                        <>
+                          <button
+                            onClick={() => handleDelete(r.id)}
+                            className="font-mono text-xs text-[#D9705C] mr-2"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setConfirmingId(null)}
+                            className="font-mono text-xs text-[#8A8F94]"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmingId(r.id)}
+                          className="font-mono text-xs text-[#8A8F94] hover:text-[#D9705C]"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

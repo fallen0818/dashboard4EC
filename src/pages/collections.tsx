@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   LineChart,
   Line,
@@ -10,24 +10,36 @@ import {
   ResponsiveContainer,
   ReferenceLine,
   Legend,
-} from 'recharts';
-import { useCollections } from '../hooks/useCollections';
-import { createCollection } from '../services/collectionsRepository';
-import { supabase } from '../services/supabaseClient';
+} from "recharts";
+import { useCollections } from "../hooks/useCollections";
+import {
+  createCollection,
+  updateCollection,
+  deleteCollection,
+  CollectionRow,
+} from "../services/collectionsRepository";
+import { supabase } from "../services/supabaseClient";
 
 function formatCurrency(n: number): string {
-  return n.toLocaleString('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 });
+  return n.toLocaleString("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    maximumFractionDigits: 0,
+  });
 }
 
 function formatMonth(period: string): string {
-  return new Date(period).toLocaleDateString('en-PH', { year: 'numeric', month: 'short' });
+  return new Date(period).toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "short",
+  });
 }
 
 const chartTooltipStyle = {
-  background: '#1A1D20',
-  border: '1px solid #2A2E32',
+  background: "#1A1D20",
+  border: "1px solid #2A2E32",
   borderRadius: 6,
-  fontFamily: 'monospace',
+  fontFamily: "monospace",
   fontSize: 12,
 };
 
@@ -36,44 +48,83 @@ export default function CollectionsPage() {
 
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [branchId, setBranchId] = useState('');
-  const [period, setPeriod] = useState(new Date().toISOString().slice(0, 8) + '01');
-  const [billed, setBilled] = useState('');
-  const [collected, setCollected] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [branchId, setBranchId] = useState("");
+  const [period, setPeriod] = useState(
+    new Date().toISOString().slice(0, 8) + "01",
+  );
+  const [billed, setBilled] = useState("");
+  const [collected, setCollected] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from('branches').select('id, name').then(({ data }) => setBranches(data ?? []));
+    supabase
+      .from("branches")
+      .select("id, name")
+      .then(({ data }) => setBranches(data ?? []));
   }, []);
+
+  function resetForm() {
+    setBranchId("");
+    setBilled("");
+    setCollected("");
+    setEditingId(null);
+    setShowForm(false);
+  }
+
+  function startEdit(row: CollectionRow) {
+    setEditingId(row.id);
+    setBranchId(row.branch_id);
+    setPeriod(row.period);
+    setBilled(String(row.amount_billed));
+    setCollected(String(row.amount_collected));
+    setShowForm(true);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setFormError(null);
     try {
-      await createCollection({
+      const entry = {
         branch_id: branchId,
         period,
         amount_billed: Number(billed) || 0,
         amount_collected: Number(collected) || 0,
-      });
-      setBranchId('');
-      setBilled('');
-      setCollected('');
-      setShowForm(false);
+      };
+      if (editingId) {
+        await updateCollection(editingId, entry);
+      } else {
+        await createCollection(entry);
+      }
+      resetForm();
       await refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to add entry');
+      setFormError(err instanceof Error ? err.message : "Failed to save entry");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteCollection(id);
+      await refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete entry");
+    } finally {
+      setConfirmingId(null);
     }
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0F1214] text-[#E8E6E1] flex items-center justify-center">
-        <p className="font-mono text-sm tracking-wide text-[#8A8F94]">Loading collections data…</p>
+        <p className="font-mono text-sm tracking-wide text-[#8A8F94]">
+          Loading collections data…
+        </p>
       </div>
     );
   }
@@ -82,7 +133,9 @@ export default function CollectionsPage() {
     return (
       <div className="min-h-screen bg-[#0F1214] text-[#E8E6E1] flex items-center justify-center px-6">
         <div className="max-w-md text-center">
-          <p className="font-mono text-sm text-[#D9705C] mb-4">Couldn't load collections: {error}</p>
+          <p className="font-mono text-sm text-[#D9705C] mb-4">
+            Couldn't load collections: {error}
+          </p>
           <button
             onClick={refresh}
             className="border border-[#3A3F44] px-4 py-2 text-sm hover:bg-[#1A1D20] transition-colors"
@@ -108,42 +161,94 @@ export default function CollectionsPage() {
             <p className="font-mono text-xs tracking-[0.2em] text-[#8A8F94] uppercase mb-2">
               Cooperative Report
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight">Collection Efficiency</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              Collection Efficiency
+            </h1>
           </div>
           <button
-            onClick={() => setShowForm((s) => !s)}
+            onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] hover:text-[#E8E6E1] border border-[#2A2E32] rounded px-3 py-1.5"
           >
-            {showForm ? 'Cancel' : '+ Add Entry'}
+            {showForm ? "Cancel" : "+ Add Entry"}
           </button>
         </header>
 
         {showForm && (
-          <form onSubmit={handleSubmit} className="mb-10 border border-[#2A2E32] rounded-lg p-5 space-y-4">
+          <form
+            onSubmit={handleSubmit}
+            className="mb-10 border border-[#2A2E32] rounded-lg p-5 space-y-4"
+          >
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">Branch</label>
-                <select required value={branchId} onChange={(e) => setBranchId(e.target.value)} className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                  Branch
+                </label>
+                <select
+                  required
+                  value={branchId}
+                  onChange={(e) => setBranchId(e.target.value)}
+                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                >
                   <option value="">Select branch…</option>
-                  {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">Month</label>
-                <input type="date" required value={period} onChange={(e) => setPeriod(e.target.value)} className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm" />
+                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                  Month
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={period}
+                  onChange={(e) => setPeriod(e.target.value)}
+                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">Amount Billed</label>
-                <input type="number" required min={0} value={billed} onChange={(e) => setBilled(e.target.value)} className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm" />
+                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                  Amount Billed
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  value={billed}
+                  onChange={(e) => setBilled(e.target.value)}
+                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">Amount Collected</label>
-                <input type="number" required min={0} value={collected} onChange={(e) => setCollected(e.target.value)} className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm" />
+                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                  Amount Collected
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  value={collected}
+                  onChange={(e) => setCollected(e.target.value)}
+                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                />
               </div>
             </div>
-            {formError && <p className="font-mono text-xs text-[#D9705C]">{formError}</p>}
-            <button type="submit" disabled={submitting} className="bg-[#E8E6E1] text-[#0F1214] font-medium text-sm px-4 py-2 rounded hover:bg-white transition-colors disabled:opacity-50">
-              {submitting ? 'Adding…' : 'Add Entry'}
+            {formError && (
+              <p className="font-mono text-xs text-[#D9705C]">{formError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="bg-[#E8E6E1] text-[#0F1214] font-medium text-sm px-4 py-2 rounded hover:bg-white transition-colors disabled:opacity-50"
+            >
+              {submitting
+                ? "Saving…"
+                : editingId
+                  ? "Update Entry"
+                  : "Add Entry"}
             </button>
           </form>
         )}
@@ -154,7 +259,10 @@ export default function CollectionsPage() {
             Collection Efficiency % · Target ≥95%
           </p>
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={trend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+            <LineChart
+              data={trend}
+              margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#2A2E32" />
               <XAxis
                 dataKey="period"
@@ -163,11 +271,20 @@ export default function CollectionsPage() {
                 fontSize={12}
                 fontFamily="monospace"
               />
-              <YAxis stroke="#8A8F94" fontSize={12} fontFamily="monospace" unit="%" domain={[80, 100]} />
+              <YAxis
+                stroke="#8A8F94"
+                fontSize={12}
+                fontFamily="monospace"
+                unit="%"
+                domain={[80, 100]}
+              />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                labelFormatter={(label) => (typeof label === 'string' ? formatMonth(label) : '')}
-                formatter={(value) => [typeof value === 'number' ? `${value}%` : '', 'Collection Efficiency']}
+                labelFormatter={(label) => formatMonth(String(label))}
+                formatter={(value) => [
+                  typeof value === "number" ? `${value}%` : (value ?? ""),
+                  "Collection Efficiency",
+                ]}
               />
               <ReferenceLine y={95} stroke="#7FB88A" strokeDasharray="4 4" />
               <Line
@@ -175,7 +292,7 @@ export default function CollectionsPage() {
                 dataKey="collectionEfficiencyPercent"
                 stroke="#D9A15C"
                 strokeWidth={2}
-                dot={{ fill: '#D9A15C', r: 4 }}
+                dot={{ fill: "#D9A15C", r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -187,7 +304,10 @@ export default function CollectionsPage() {
             Billed vs. Collected (₱) · All Branches Combined
           </p>
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={trend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+            <LineChart
+              data={trend}
+              margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#2A2E32" />
               <XAxis
                 dataKey="period"
@@ -204,17 +324,22 @@ export default function CollectionsPage() {
               />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                labelFormatter={(label) => (typeof label === 'string' ? formatMonth(label) : '')}
-                formatter={(value, name) => [typeof value === 'number' ? formatCurrency(value) : '', name ?? '']}
+                labelFormatter={(label) => formatMonth(String(label))}
+                formatter={(value: any, name: any) => [
+                  formatCurrency(Number(value || 0)),
+                  String(name),
+                ]}
               />
-              <Legend wrapperStyle={{ fontFamily: 'monospace', fontSize: 12 }} />
+              <Legend
+                wrapperStyle={{ fontFamily: "monospace", fontSize: 12 }}
+              />
               <Line
                 type="monotone"
                 dataKey="totalBilled"
                 name="Billed"
                 stroke="#8A8F94"
                 strokeWidth={2}
-                dot={{ fill: '#8A8F94', r: 4 }}
+                dot={{ fill: "#8A8F94", r: 4 }}
               />
               <Line
                 type="monotone"
@@ -222,7 +347,7 @@ export default function CollectionsPage() {
                 name="Collected"
                 stroke="#7FB88A"
                 strokeWidth={2}
-                dot={{ fill: '#7FB88A', r: 4 }}
+                dot={{ fill: "#7FB88A", r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -242,14 +367,17 @@ export default function CollectionsPage() {
                 <th className="text-right py-2 font-normal">Collected</th>
                 <th className="text-right py-2 font-normal">Receivable</th>
                 <th className="text-right py-2 font-normal">Efficiency</th>
+                <th className="w-24"></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => {
+              {rows.map((r) => {
                 const receivable = r.amount_billed - r.amount_collected;
                 return (
-                  <tr key={i} className="border-b border-[#1E2225]">
-                    <td className="py-2.5 font-mono text-[#6B7075]">{formatMonth(r.period)}</td>
+                  <tr key={r.id} className="border-b border-[#1E2225]">
+                    <td className="py-2.5 font-mono text-[#6B7075]">
+                      {formatMonth(r.period)}
+                    </td>
                     <td className="py-2.5">{r.branch_name}</td>
                     <td className="py-2.5 text-right font-mono tabular-nums">
                       {formatCurrency(r.amount_billed)}
@@ -261,11 +389,40 @@ export default function CollectionsPage() {
                       {formatCurrency(receivable)}
                     </td>
                     <td
-                      className={`py-2.5 text-right font-mono tabular-nums ${
-                        r.collection_efficiency_percent >= 95 ? 'text-[#7FB88A]' : 'text-[#D9705C]'
-                      }`}
+                      className={`py-2.5 text-right font-mono tabular-nums ${r.collection_efficiency_percent >= 95 ? "text-[#7FB88A]" : "text-[#D9705C]"}`}
                     >
                       {r.collection_efficiency_percent}%
+                    </td>
+                    <td className="py-2.5 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => startEdit(r)}
+                        className="font-mono text-xs text-[#8A8F94] hover:text-[#E8E6E1] mr-3"
+                      >
+                        Edit
+                      </button>
+                      {confirmingId === r.id ? (
+                        <>
+                          <button
+                            onClick={() => handleDelete(r.id)}
+                            className="font-mono text-xs text-[#D9705C] mr-2"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setConfirmingId(null)}
+                            className="font-mono text-xs text-[#8A8F94]"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmingId(r.id)}
+                          className="font-mono text-xs text-[#8A8F94] hover:text-[#D9705C]"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

@@ -11,7 +11,12 @@ import {
   ReferenceLine,
 } from "recharts";
 import { useSystemLoss } from "../hooks/useSystemLoss";
-import { createSystemLoss } from "../services/systemLossRepository";
+import {
+  createSystemLoss,
+  updateSystemLoss,
+  deleteSystemLoss,
+  SystemLossRow,
+} from "../services/systemLossRepository";
 import { supabase } from "../services/supabaseClient";
 
 function formatNumber(n: number): string {
@@ -30,6 +35,8 @@ export default function SystemLossPage() {
 
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [branchId, setBranchId] = useState("");
   const [period, setPeriod] = useState(
     new Date().toISOString().slice(0, 8) + "01",
@@ -46,26 +53,56 @@ export default function SystemLossPage() {
       .then(({ data }) => setBranches(data ?? []));
   }, []);
 
+  function resetForm() {
+    setBranchId("");
+    setKwhPurchased("");
+    setKwhSold("");
+    setEditingId(null);
+    setShowForm(false);
+  }
+
+  function startEdit(row: SystemLossRow) {
+    setEditingId(row.id);
+    setBranchId(row.branch_id);
+    setPeriod(row.period);
+    setKwhPurchased(String(row.kwh_purchased));
+    setKwhSold(String(row.kwh_sold));
+    setShowForm(true);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setFormError(null);
     try {
-      await createSystemLoss({
+      const entry = {
         branch_id: branchId,
         period,
         kwh_purchased: Number(kwhPurchased) || 0,
         kwh_sold: Number(kwhSold) || 0,
-      });
-      setBranchId("");
-      setKwhPurchased("");
-      setKwhSold("");
-      setShowForm(false);
+      };
+      if (editingId) {
+        await updateSystemLoss(editingId, entry);
+      } else {
+        await createSystemLoss(entry);
+      }
+      resetForm();
       await refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Failed to add entry");
+      setFormError(err instanceof Error ? err.message : "Failed to save entry");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteSystemLoss(id);
+      await refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete entry");
+    } finally {
+      setConfirmingId(null);
     }
   }
 
@@ -116,7 +153,7 @@ export default function SystemLossPage() {
             </h1>
           </div>
           <button
-            onClick={() => setShowForm((s) => !s)}
+            onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] hover:text-[#E8E6E1] border border-[#2A2E32] rounded px-3 py-1.5"
           >
             {showForm ? "Cancel" : "+ Add Entry"}
@@ -194,7 +231,11 @@ export default function SystemLossPage() {
               disabled={submitting}
               className="bg-[#E8E6E1] text-[#0F1214] font-medium text-sm px-4 py-2 rounded hover:bg-white transition-colors disabled:opacity-50"
             >
-              {submitting ? "Adding…" : "Add Entry"}
+              {submitting
+                ? "Saving…"
+                : editingId
+                  ? "Update Entry"
+                  : "Add Entry"}
             </button>
           </form>
         )}
@@ -231,14 +272,8 @@ export default function SystemLossPage() {
                   fontFamily: "monospace",
                   fontSize: 12,
                 }}
-                labelFormatter={(label) =>
-                  typeof label === "string" ? formatMonth(label) : ""
-                }
-                formatter={(value: any) =>
-                  value == null
-                    ? ["", "System Loss"]
-                    : [`${value}%`, "System Loss"]
-                }
+                labelFormatter={(label) => formatMonth(String(label))}
+                formatter={(value) => [`${value ?? 0}%`, "System Loss"]}
               />
               <ReferenceLine y={13} stroke="#D9705C" strokeDasharray="4 4" />
               <Line
@@ -265,11 +300,12 @@ export default function SystemLossPage() {
                 <th className="text-right py-2 font-normal">Purchased (kWh)</th>
                 <th className="text-right py-2 font-normal">Sold (kWh)</th>
                 <th className="text-right py-2 font-normal">Loss %</th>
+                <th className="w-24"></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} className="border-b border-[#1E2225]">
+              {rows.map((r) => (
+                <tr key={r.id} className="border-b border-[#1E2225]">
                   <td className="py-2.5 font-mono text-[#6B7075]">
                     {formatMonth(r.period)}
                   </td>
@@ -281,13 +317,40 @@ export default function SystemLossPage() {
                     {formatNumber(r.kwh_sold)}
                   </td>
                   <td
-                    className={`py-2.5 text-right font-mono tabular-nums ${
-                      r.system_loss_percent <= 13
-                        ? "text-[#7FB88A]"
-                        : "text-[#D9705C]"
-                    }`}
+                    className={`py-2.5 text-right font-mono tabular-nums ${r.system_loss_percent <= 13 ? "text-[#7FB88A]" : "text-[#D9705C]"}`}
                   >
                     {r.system_loss_percent}%
+                  </td>
+                  <td className="py-2.5 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => startEdit(r)}
+                      className="font-mono text-xs text-[#8A8F94] hover:text-[#E8E6E1] mr-3"
+                    >
+                      Edit
+                    </button>
+                    {confirmingId === r.id ? (
+                      <>
+                        <button
+                          onClick={() => handleDelete(r.id)}
+                          className="font-mono text-xs text-[#D9705C] mr-2"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setConfirmingId(null)}
+                          className="font-mono text-xs text-[#8A8F94]"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmingId(r.id)}
+                        className="font-mono text-xs text-[#8A8F94] hover:text-[#D9705C]"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
