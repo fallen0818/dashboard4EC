@@ -166,8 +166,8 @@ export default function CollectionsPage() {
               <YAxis stroke="#8A8F94" fontSize={12} fontFamily="monospace" unit="%" domain={[80, 100]} />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                labelFormatter={formatMonth}
-                formatter={(value: number) => [`${value}%`, 'Collection Efficiency']}
+                labelFormatter={(label) => (typeof label === 'string' ? formatMonth(label) : '')}
+                formatter={(value) => [typeof value === 'number' ? `${value}%` : '', 'Collection Efficiency']}
               />
               <ReferenceLine y={95} stroke="#7FB88A" strokeDasharray="4 4" />
               <Line
@@ -204,8 +204,8 @@ export default function CollectionsPage() {
               />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                labelFormatter={formatMonth}
-                formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                labelFormatter={(label) => (typeof label === 'string' ? formatMonth(label) : '')}
+                formatter={(value, name) => [typeof value === 'number' ? formatCurrency(value) : '', name ?? '']}
               />
               <Legend wrapperStyle={{ fontFamily: 'monospace', fontSize: 12 }} />
               <Line
