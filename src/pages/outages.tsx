@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useOutages } from '../hooks/useOutages';
 import { createOutage, updateOutage, deleteOutage, OutageRow } from '../services/outagesRepository';
 import { supabase } from '../services/supabaseClient';
+
+const CAUSE_COLORS = ['#D9705C', '#D9A15C', '#8A8F94', '#6B9FD9', '#7FB88A'];
 
 interface BranchOption {
   id: string;
@@ -33,6 +36,7 @@ export default function OutagesPage() {
     totalMinutes,
     totalConsumersAffected,
     avgDuration,
+    byCause,
   } = useOutages();
 
   const [branches, setBranches] = useState<BranchOption[]>([]);
@@ -185,6 +189,47 @@ export default function OutagesPage() {
             <p className="font-mono text-2xl tabular-nums">{formatDuration(avgDuration)}</p>
           </div>
         </div>
+
+        {/* Cause breakdown chart */}
+        {byCause.length > 0 && (
+          <div className="border border-[#2A2E32] rounded-lg p-6 mb-10">
+            <p className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] mb-4">
+              Outages by Cause
+            </p>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={byCause} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2E32" horizontal={false} />
+                <XAxis type="number" stroke="#8A8F94" fontSize={12} fontFamily="monospace" allowDecimals={false} />
+                <YAxis
+                  type="category"
+                  dataKey="cause"
+                  stroke="#8A8F94"
+                  fontSize={12}
+                  fontFamily="monospace"
+                  width={140}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: '#1A1D20',
+                    border: '1px solid #2A2E32',
+                    borderRadius: 6,
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  }}
+                  formatter={(value: number, name: string, item: any) => [
+                    `${value} outage${value === 1 ? '' : 's'} · ${item.payload.minutes}m total`,
+                    'Count',
+                  ]}
+                />
+                <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                  {byCause.map((_, i) => (
+                    <Cell key={i} fill={CAUSE_COLORS[i % CAUSE_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
         {/* Add outage form */}
         {showForm && (

@@ -28,6 +28,16 @@ export function useOutages() {
   const totalConsumersAffected = rows.reduce((s, r) => s + r.consumers_affected, 0);
   const avgDuration = totalOutages > 0 ? Math.round(totalMinutes / totalOutages) : 0;
 
+  const byCause = Object.values(
+    rows.reduce((acc, r) => {
+      const key = r.cause?.trim() || 'Unspecified';
+      if (!acc[key]) acc[key] = { cause: key, count: 0, minutes: 0 };
+      acc[key].count += 1;
+      acc[key].minutes += r.duration_minutes;
+      return acc;
+    }, {} as Record<string, { cause: string; count: number; minutes: number }>)
+  ).sort((a, b) => b.count - a.count);
+
   return {
     rows,
     loading,
@@ -37,5 +47,6 @@ export function useOutages() {
     totalMinutes,
     totalConsumersAffected,
     avgDuration,
+    byCause,
   };
 }
