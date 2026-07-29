@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   LineChart,
   Line,
@@ -9,28 +9,35 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-} from 'recharts';
-import { usePowerSupply } from '../hooks/usePowerSupply';
-import { createPowerSupply } from '../services/powerSupplyRepository';
-import { supabase } from '../services/supabaseClient';
+} from "recharts";
+import { usePowerSupply } from "../hooks/usePowerSupply";
+import { createPowerSupply } from "../services/powerSupplyRepository";
+import { supabase } from "../services/supabaseClient";
 
 function formatNumber(n: number): string {
-  return n.toLocaleString('en-PH', { maximumFractionDigits: 0 });
+  return n.toLocaleString("en-PH", { maximumFractionDigits: 0 });
 }
 
 function formatCurrency(n: number): string {
-  return n.toLocaleString('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 });
+  return n.toLocaleString("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    maximumFractionDigits: 0,
+  });
 }
 
 function formatMonth(period: string): string {
-  return new Date(period).toLocaleDateString('en-PH', { year: 'numeric', month: 'short' });
+  return new Date(period).toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "short",
+  });
 }
 
 const chartTooltipStyle = {
-  background: '#1A1D20',
-  border: '1px solid #2A2E32',
+  background: "#1A1D20",
+  border: "1px solid #2A2E32",
   borderRadius: 6,
-  fontFamily: 'monospace',
+  fontFamily: "monospace",
   fontSize: 12,
 };
 
@@ -39,17 +46,22 @@ export default function PowerSupplyPage() {
 
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [branchId, setBranchId] = useState('');
-  const [period, setPeriod] = useState(new Date().toISOString().slice(0, 8) + '01');
-  const [kwhPurchased, setKwhPurchased] = useState('');
-  const [cost, setCost] = useState('');
-  const [kwhSold, setKwhSold] = useState('');
-  const [revenue, setRevenue] = useState('');
+  const [branchId, setBranchId] = useState("");
+  const [period, setPeriod] = useState(
+    new Date().toISOString().slice(0, 8) + "01",
+  );
+  const [kwhPurchased, setKwhPurchased] = useState("");
+  const [cost, setCost] = useState("");
+  const [kwhSold, setKwhSold] = useState("");
+  const [revenue, setRevenue] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from('branches').select('id, name').then(({ data }) => setBranches(data ?? []));
+    supabase
+      .from("branches")
+      .select("id, name")
+      .then(({ data }) => setBranches(data ?? []));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -65,15 +77,15 @@ export default function PowerSupplyPage() {
         kwh_sold: Number(kwhSold) || 0,
         sales_revenue: Number(revenue) || 0,
       });
-      setBranchId('');
-      setKwhPurchased('');
-      setCost('');
-      setKwhSold('');
-      setRevenue('');
+      setBranchId("");
+      setKwhPurchased("");
+      setCost("");
+      setKwhSold("");
+      setRevenue("");
       setShowForm(false);
       await refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to add entry');
+      setFormError(err instanceof Error ? err.message : "Failed to add entry");
     } finally {
       setSubmitting(false);
     }
@@ -82,7 +94,9 @@ export default function PowerSupplyPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0F1214] text-[#E8E6E1] flex items-center justify-center">
-        <p className="font-mono text-sm tracking-wide text-[#8A8F94]">Loading power supply data…</p>
+        <p className="font-mono text-sm tracking-wide text-[#8A8F94]">
+          Loading power supply data…
+        </p>
       </div>
     );
   }
@@ -91,7 +105,9 @@ export default function PowerSupplyPage() {
     return (
       <div className="min-h-screen bg-[#0F1214] text-[#E8E6E1] flex items-center justify-center px-6">
         <div className="max-w-md text-center">
-          <p className="font-mono text-sm text-[#D9705C] mb-4">Couldn't load power supply: {error}</p>
+          <p className="font-mono text-sm text-[#D9705C] mb-4">
+            Couldn't load power supply: {error}
+          </p>
           <button
             onClick={refresh}
             className="border border-[#3A3F44] px-4 py-2 text-sm hover:bg-[#1A1D20] transition-colors"
@@ -117,50 +133,116 @@ export default function PowerSupplyPage() {
             <p className="font-mono text-xs tracking-[0.2em] text-[#8A8F94] uppercase mb-2">
               Cooperative Report
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight">kWh Sales / Purchased Power</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              kWh Sales / Purchased Power
+            </h1>
           </div>
           <button
             onClick={() => setShowForm((s) => !s)}
             className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] hover:text-[#E8E6E1] border border-[#2A2E32] rounded px-3 py-1.5"
           >
-            {showForm ? 'Cancel' : '+ Add Entry'}
+            {showForm ? "Cancel" : "+ Add Entry"}
           </button>
         </header>
 
         {showForm && (
-          <form onSubmit={handleSubmit} className="mb-10 border border-[#2A2E32] rounded-lg p-5 space-y-4">
+          <form
+            onSubmit={handleSubmit}
+            className="mb-10 border border-[#2A2E32] rounded-lg p-5 space-y-4"
+          >
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">Branch</label>
-                <select required value={branchId} onChange={(e) => setBranchId(e.target.value)} className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                  Branch
+                </label>
+                <select
+                  required
+                  value={branchId}
+                  onChange={(e) => setBranchId(e.target.value)}
+                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                >
                   <option value="">Select branch…</option>
-                  {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">Month</label>
-                <input type="date" required value={period} onChange={(e) => setPeriod(e.target.value)} className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm" />
+                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                  Month
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={period}
+                  onChange={(e) => setPeriod(e.target.value)}
+                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">kWh Purchased</label>
-                <input type="number" required min={0} value={kwhPurchased} onChange={(e) => setKwhPurchased(e.target.value)} className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm" />
+                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                  kWh Purchased
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  value={kwhPurchased}
+                  onChange={(e) => setKwhPurchased(e.target.value)}
+                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">Purchased Power Cost</label>
-                <input type="number" required min={0} value={cost} onChange={(e) => setCost(e.target.value)} className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm" />
+                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                  Purchased Power Cost
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  value={cost}
+                  onChange={(e) => setCost(e.target.value)}
+                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">kWh Sold</label>
-                <input type="number" required min={0} value={kwhSold} onChange={(e) => setKwhSold(e.target.value)} className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm" />
+                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                  kWh Sold
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  value={kwhSold}
+                  onChange={(e) => setKwhSold(e.target.value)}
+                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">Sales Revenue</label>
-                <input type="number" required min={0} value={revenue} onChange={(e) => setRevenue(e.target.value)} className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm" />
+                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                  Sales Revenue
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  value={revenue}
+                  onChange={(e) => setRevenue(e.target.value)}
+                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                />
               </div>
             </div>
-            {formError && <p className="font-mono text-xs text-[#D9705C]">{formError}</p>}
-            <button type="submit" disabled={submitting} className="bg-[#E8E6E1] text-[#0F1214] font-medium text-sm px-4 py-2 rounded hover:bg-white transition-colors disabled:opacity-50">
-              {submitting ? 'Adding…' : 'Add Entry'}
+            {formError && (
+              <p className="font-mono text-xs text-[#D9705C]">{formError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="bg-[#E8E6E1] text-[#0F1214] font-medium text-sm px-4 py-2 rounded hover:bg-white transition-colors disabled:opacity-50"
+            >
+              {submitting ? "Adding…" : "Add Entry"}
             </button>
           </form>
         )}
@@ -171,7 +253,10 @@ export default function PowerSupplyPage() {
             Energy Volume (kWh) · All Branches Combined
           </p>
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={trend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+            <LineChart
+              data={trend}
+              margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#2A2E32" />
               <XAxis
                 dataKey="period"
@@ -188,17 +273,24 @@ export default function PowerSupplyPage() {
               />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                labelFormatter={formatMonth}
-                formatter={(value: number, name: string) => [formatNumber(value), name]}
+                labelFormatter={(label) =>
+                  typeof label === "string" ? formatMonth(label) : label
+                }
+                formatter={(value: any, name: string | number | undefined) => [
+                  formatNumber(Number(value ?? 0)),
+                  name ?? "",
+                ]}
               />
-              <Legend wrapperStyle={{ fontFamily: 'monospace', fontSize: 12 }} />
+              <Legend
+                wrapperStyle={{ fontFamily: "monospace", fontSize: 12 }}
+              />
               <Line
                 type="monotone"
                 dataKey="totalKwhPurchased"
                 name="Purchased"
                 stroke="#8A8F94"
                 strokeWidth={2}
-                dot={{ fill: '#8A8F94', r: 4 }}
+                dot={{ fill: "#8A8F94", r: 4 }}
               />
               <Line
                 type="monotone"
@@ -206,7 +298,7 @@ export default function PowerSupplyPage() {
                 name="Sold"
                 stroke="#7FB88A"
                 strokeWidth={2}
-                dot={{ fill: '#7FB88A', r: 4 }}
+                dot={{ fill: "#7FB88A", r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -218,7 +310,10 @@ export default function PowerSupplyPage() {
             Cost vs. Revenue (₱) · All Branches Combined
           </p>
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={trend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+            <LineChart
+              data={trend}
+              margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#2A2E32" />
               <XAxis
                 dataKey="period"
@@ -235,17 +330,26 @@ export default function PowerSupplyPage() {
               />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                labelFormatter={formatMonth}
-                formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                labelFormatter={(label) =>
+                  typeof label === "string" ? formatMonth(label) : label
+                }
+                formatter={
+                  ((value: any, name: any) => {
+                    const v = Array.isArray(value) ? value[0] : value;
+                    return [formatCurrency(Number(v ?? 0)), name ?? ""];
+                  }) as any
+                }
               />
-              <Legend wrapperStyle={{ fontFamily: 'monospace', fontSize: 12 }} />
+              <Legend
+                wrapperStyle={{ fontFamily: "monospace", fontSize: 12 }}
+              />
               <Line
                 type="monotone"
                 dataKey="totalCost"
                 name="Purchased Power Cost"
                 stroke="#D9705C"
                 strokeWidth={2}
-                dot={{ fill: '#D9705C', r: 4 }}
+                dot={{ fill: "#D9705C", r: 4 }}
               />
               <Line
                 type="monotone"
@@ -253,7 +357,7 @@ export default function PowerSupplyPage() {
                 name="Sales Revenue"
                 stroke="#7FB88A"
                 strokeWidth={2}
-                dot={{ fill: '#7FB88A', r: 4 }}
+                dot={{ fill: "#7FB88A", r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -281,7 +385,9 @@ export default function PowerSupplyPage() {
                 const margin = r.sales_revenue - r.purchased_power_cost;
                 return (
                   <tr key={i} className="border-b border-[#1E2225]">
-                    <td className="py-2.5 font-mono text-[#6B7075]">{formatMonth(r.period)}</td>
+                    <td className="py-2.5 font-mono text-[#6B7075]">
+                      {formatMonth(r.period)}
+                    </td>
                     <td className="py-2.5">{r.branch_name}</td>
                     <td className="py-2.5 text-right font-mono tabular-nums">
                       {formatNumber(r.kwh_purchased)}
@@ -297,7 +403,7 @@ export default function PowerSupplyPage() {
                     </td>
                     <td
                       className={`py-2.5 text-right font-mono tabular-nums ${
-                        margin >= 0 ? 'text-[#7FB88A]' : 'text-[#D9705C]'
+                        margin >= 0 ? "text-[#7FB88A]" : "text-[#D9705C]"
                       }`}
                     >
                       {formatCurrency(margin)}
