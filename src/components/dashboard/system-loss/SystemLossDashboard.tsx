@@ -27,7 +27,7 @@ export default function SystemLossDashboard({ branchId }: Props) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0 }}>System Loss</h1>
         <button onClick={() => setFormOpen(true)}>+ Add Record</button>
       </div>

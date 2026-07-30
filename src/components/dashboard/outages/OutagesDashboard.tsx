@@ -28,7 +28,7 @@ export default function OutagesDashboard({ branchId }: Props) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0 }}>Outages / Service Interruptions</h1>
         <button onClick={() => setFormOpen(true)}>+ Log Outage</button>
       </div>

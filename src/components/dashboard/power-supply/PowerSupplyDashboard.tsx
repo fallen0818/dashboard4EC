@@ -31,7 +31,7 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0 }}>Power Supply &amp; WESM Pricing</h1>
         <button onClick={() => setFormOpen(true)}>+ Add Record</button>
       </div>

@@ -35,9 +35,10 @@ export default function LoginPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        padding: 16,
       }}
     >
-      <div className="card" style={{ width: 340 }}>
+      <div className="card" style={{ width: '100%', maxWidth: 340 }}>
         <div className="sld-divider"><span className="sld-node" /></div>
         <h1>Sign in</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 0 }}>

@@ -309,9 +309,78 @@ a:focus-visible, button:focus-visible, input:focus-visible {
   outline-offset: 2px;
 }
 
-/* Mobile */
+/* ============================================
+   Responsive / small screens
+   ============================================ */
+
+/* Tablet: trim the generous desktop padding */
+@media (max-width: 900px) {
+  .content { padding: 24px 20px; }
+  .stat-row { gap: 24px; }
+}
+
+/* Phone */
 @media (max-width: 720px) {
+  html, body { font-size: 14px; }
+
+  /* Shell stacks; sidebar becomes a sticky horizontal tab bar */
   .app-shell { flex-direction: column; }
-  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--line); }
-  .content { padding: 20px; }
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .sidebar-title {
+    padding: 12px 16px;
+    margin-bottom: 0;
+  }
+  .sidebar nav {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .sidebar nav::-webkit-scrollbar { display: none; }
+  .sidebar-link {
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    padding: 12px 14px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .sidebar-link.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--copper);
+  }
+
+  .topbar { padding: 10px 16px; }
+  .content { padding: 16px 14px; }
+
+  h1 { font-size: 1.35rem; }
+  h2 { font-size: 1.1rem; }
+
+  /* Cards a touch tighter, left-aligned reads better narrow */
+  .card { padding: 16px 14px; }
+
+  /* Stats wrap without huge gaps */
+  .stat-row { gap: 16px 22px; }
+  .stat-value { font-size: 1.15rem; }
+
+  /* Wide tables scroll sideways instead of cramming every column */
+  .card > table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  th, td { padding: 8px; }
+
+  /* Modal forms hug the screen */
+  .form-field input,
+  .form-field select,
+  .form-field textarea { font-size: 16px; } /* 16px avoids iOS zoom-on-focus */
 }
