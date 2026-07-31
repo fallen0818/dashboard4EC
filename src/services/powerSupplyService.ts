@@ -81,6 +81,17 @@ export async function createPowerSupplyRecord(input: NewPowerSupply): Promise<Po
   return data as PowerSupplyRecord;
 }
 
+export async function updatePowerSupplyRecord(id: string, input: NewPowerSupply): Promise<PowerSupplyRecord> {
+  const { data, error } = await supabase.from('power_supply').update(input).eq('id', id).select().single();
+  if (error) throw error;
+  return data as PowerSupplyRecord;
+}
+
+export async function deletePowerSupplyRecord(id: string): Promise<void> {
+  const { error } = await supabase.from('power_supply').delete().eq('id', id);
+  if (error) throw error;
+}
+
 /**
  * Derived metric: average purchased power cost per kWh sold, per period.
  * Useful for spotting whether cost increases are being passed through efficiently.

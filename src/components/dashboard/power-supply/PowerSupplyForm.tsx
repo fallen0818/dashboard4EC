@@ -3,17 +3,18 @@
 import { useState, useEffect, FormEvent } from 'react';
 import FormModal from '../../ui/FormModal';
 import { Field, SelectField } from '../../ui/fields';
-import { createPowerSupplyRecord, getWesmPricesForBranch } from '../../../services/powerSupplyService';
-import type { WesmPrice } from '../../../models/powerSupply.types';
+import { createPowerSupplyRecord, updatePowerSupplyRecord, getWesmPricesForBranch } from '../../../services/powerSupplyService';
+import type { WesmPrice, PowerSupplyRecord } from '../../../models/powerSupply.types';
 
 interface Props {
   branchId: string;
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  editing?: PowerSupplyRecord | null;
 }
 
-export default function PowerSupplyForm({ branchId, open, onClose, onSaved }: Props) {
+export default function PowerSupplyForm({ branchId, open, onClose, onSaved, editing }: Props) {
   const [prices, setPrices] = useState<WesmPrice[]>([]);
   const [wesmPriceId, setWesmPriceId] = useState('');
   const [periodStart, setPeriodStart] = useState('');
@@ -32,12 +33,32 @@ export default function PowerSupplyForm({ branchId, open, onClose, onSaved }: Pr
     getWesmPricesForBranch(branchId).then(setPrices).catch(() => setPrices([]));
   }, [open, branchId]);
 
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setWesmPriceId(editing.wesm_price_id ?? '');
+      setPeriodStart(editing.period_start);
+      setPeriodEnd(editing.period_end);
+      setKwhPurchased(String(editing.kwh_purchased));
+      setKwhSold(String(editing.kwh_sold));
+      setPurchasedCost(String(editing.purchased_power_cost));
+      setGenCharge(editing.generation_charge != null ? String(editing.generation_charge) : '');
+      setTransCharge(editing.transmission_charge != null ? String(editing.transmission_charge) : '');
+      setLossCharge(editing.system_loss_charge != null ? String(editing.system_loss_charge) : '');
+    } else {
+      setWesmPriceId(''); setPeriodStart(''); setPeriodEnd('');
+      setKwhPurchased(''); setKwhSold(''); setPurchasedCost('');
+      setGenCharge(''); setTransCharge(''); setLossCharge('');
+    }
+    setError(null);
+  }, [open, editing]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      await createPowerSupplyRecord({
+      const payload = {
         branch_id: branchId,
         wesm_price_id: wesmPriceId || null,
         period_start: periodStart,
@@ -48,10 +69,9 @@ export default function PowerSupplyForm({ branchId, open, onClose, onSaved }: Pr
         generation_charge: genCharge ? Number(genCharge) : null,
         transmission_charge: transCharge ? Number(transCharge) : null,
         system_loss_charge: lossCharge ? Number(lossCharge) : null,
-      });
-      setWesmPriceId(''); setPeriodStart(''); setPeriodEnd('');
-      setKwhPurchased(''); setKwhSold(''); setPurchasedCost('');
-      setGenCharge(''); setTransCharge(''); setLossCharge('');
+      };
+      if (editing) await updatePowerSupplyRecord(editing.id, payload);
+      else await createPowerSupplyRecord(payload);
       onSaved();
       onClose();
     } catch (err) {
@@ -63,13 +83,13 @@ export default function PowerSupplyForm({ branchId, open, onClose, onSaved }: Pr
 
   return (
     <FormModal
-      title="Add Power Supply Record"
+      title={editing ? 'Edit Power Supply Record' : 'Add Power Supply Record'}
       open={open}
       onClose={onClose}
       onSubmit={handleSubmit}
       submitting={submitting}
       error={error}
-      submitLabel="Save record"
+      submitLabel={editing ? 'Update record' : 'Save record'}
     >
       <Field label="Period Start" name="period_start" type="date" value={periodStart} onChange={setPeriodStart} required />
       <Field label="Period End" name="period_end" type="date" value={periodEnd} onChange={setPeriodEnd} required />

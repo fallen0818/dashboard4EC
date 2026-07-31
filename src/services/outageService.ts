@@ -20,12 +20,26 @@ export interface NewOutage {
   start_time: string;
   end_time: string | null;
   affected_consumers: number;
+  restoration_report: string | null;
+  restored_by: string | null;
+  restored_at: string | null;
 }
 
 export async function createOutage(input: NewOutage): Promise<OutageRecord> {
   const { data, error } = await supabase.from('outages').insert(input).select().single();
   if (error) throw error;
   return data as OutageRecord;
+}
+
+export async function updateOutage(id: string, input: NewOutage): Promise<OutageRecord> {
+  const { data, error } = await supabase.from('outages').update(input).eq('id', id).select().single();
+  if (error) throw error;
+  return data as OutageRecord;
+}
+
+export async function deleteOutage(id: string): Promise<void> {
+  const { error } = await supabase.from('outages').delete().eq('id', id);
+  if (error) throw error;
 }
 
 export function computeOutageDurationMinutes(outage: OutageRecord): number | null {

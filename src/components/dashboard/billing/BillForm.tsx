@@ -3,17 +3,18 @@
 import { useState, useEffect, FormEvent } from 'react';
 import FormModal from '../../ui/FormModal';
 import { Field, SelectField } from '../../ui/fields';
-import { createBill, getMembersForBranch } from '../../../services/billingService';
-import type { Member } from '../../../models/billing.types';
+import { createBill, updateBill, getMembersForBranch } from '../../../services/billingService';
+import type { Member, BillWithMember } from '../../../models/billing.types';
 
 interface Props {
   branchId: string;
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  editing?: BillWithMember | null;
 }
 
-export default function BillForm({ branchId, open, onClose, onSaved }: Props) {
+export default function BillForm({ branchId, open, onClose, onSaved, editing }: Props) {
   const [members, setMembers] = useState<Member[]>([]);
   const [memberId, setMemberId] = useState('');
   const [periodStart, setPeriodStart] = useState('');
@@ -29,22 +30,38 @@ export default function BillForm({ branchId, open, onClose, onSaved }: Props) {
     getMembersForBranch(branchId).then(setMembers).catch(() => setMembers([]));
   }, [open, branchId]);
 
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setMemberId(editing.member_id);
+      setPeriodStart(editing.billing_period_start);
+      setPeriodEnd(editing.billing_period_end);
+      setDueDate(editing.due_date);
+      setTotalAmount(String(editing.total_amount));
+      setStatus(editing.status);
+    } else {
+      setMemberId(''); setPeriodStart(''); setPeriodEnd(''); setDueDate('');
+      setTotalAmount(''); setStatus('unpaid');
+    }
+    setError(null);
+  }, [open, editing]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      await createBill({
+      const base = {
         member_id: memberId,
         billing_period_start: periodStart,
         billing_period_end: periodEnd,
         due_date: dueDate,
         total_amount: Number(totalAmount),
-        amount_paid: 0,
         status: status as 'unpaid' | 'partial' | 'paid' | 'overdue',
-      });
-      setMemberId(''); setPeriodStart(''); setPeriodEnd(''); setDueDate('');
-      setTotalAmount(''); setStatus('unpaid');
+      };
+      // On edit, leave amount_paid untouched (payments already recorded).
+      if (editing) await updateBill(editing.id, base);
+      else await createBill({ ...base, amount_paid: 0 });
       onSaved();
       onClose();
     } catch (err) {
@@ -56,13 +73,13 @@ export default function BillForm({ branchId, open, onClose, onSaved }: Props) {
 
   return (
     <FormModal
-      title="Generate Bill"
+      title={editing ? 'Edit Bill' : 'Generate Bill'}
       open={open}
       onClose={onClose}
       onSubmit={handleSubmit}
       submitting={submitting}
       error={error}
-      submitLabel="Save bill"
+      submitLabel={editing ? 'Update bill' : 'Save bill'}
     >
       <SelectField label="Member" name="member_id" value={memberId} onChange={setMemberId} required>
         <option value="" disabled>Select a member…</option>

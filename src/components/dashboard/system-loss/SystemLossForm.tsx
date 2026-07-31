@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import FormModal from '../../ui/FormModal';
 import { Field } from '../../ui/fields';
-import { createSystemLossRecord } from '../../../services/systemLossService';
+import { createSystemLossRecord, updateSystemLossRecord } from '../../../services/systemLossService';
+import type { SystemLossRecord } from '../../../models/systemLoss.types';
 
 interface Props {
   branchId: string;
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  editing?: SystemLossRecord | null;
 }
 
-export default function SystemLossForm({ branchId, open, onClose, onSaved }: Props) {
+export default function SystemLossForm({ branchId, open, onClose, onSaved, editing }: Props) {
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
   const [kwhInput, setKwhInput] = useState('');
@@ -21,20 +23,35 @@ export default function SystemLossForm({ branchId, open, onClose, onSaved }: Pro
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setPeriodStart(editing.period_start);
+      setPeriodEnd(editing.period_end);
+      setKwhInput(String(editing.kwh_input));
+      setKwhBilled(String(editing.kwh_billed));
+      setCapPercent(String(editing.cap_percent));
+    } else {
+      setPeriodStart(''); setPeriodEnd(''); setKwhInput(''); setKwhBilled(''); setCapPercent('5.00');
+    }
+    setError(null);
+  }, [open, editing]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      await createSystemLossRecord({
+      const payload = {
         branch_id: branchId,
         period_start: periodStart,
         period_end: periodEnd,
         kwh_input: Number(kwhInput),
         kwh_billed: Number(kwhBilled),
         cap_percent: Number(capPercent),
-      });
-      setPeriodStart(''); setPeriodEnd(''); setKwhInput(''); setKwhBilled(''); setCapPercent('5.00');
+      };
+      if (editing) await updateSystemLossRecord(editing.id, payload);
+      else await createSystemLossRecord(payload);
       onSaved();
       onClose();
     } catch (err) {
@@ -46,13 +63,13 @@ export default function SystemLossForm({ branchId, open, onClose, onSaved }: Pro
 
   return (
     <FormModal
-      title="Add System Loss Record"
+      title={editing ? 'Edit System Loss Record' : 'Add System Loss Record'}
       open={open}
       onClose={onClose}
       onSubmit={handleSubmit}
       submitting={submitting}
       error={error}
-      submitLabel="Save record"
+      submitLabel={editing ? 'Update record' : 'Save record'}
     >
       <Field label="Period Start" name="period_start" type="date" value={periodStart} onChange={setPeriodStart} required />
       <Field label="Period End" name="period_end" type="date" value={periodEnd} onChange={setPeriodEnd} required />

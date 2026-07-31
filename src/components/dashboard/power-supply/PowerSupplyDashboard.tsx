@@ -5,9 +5,14 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import { usePowerSupplyCost } from '../../../hooks/usePowerSupplyCost';
-import { computeCostPerKwhSold } from '../../../services/powerSupplyService';
+import { computeCostPerKwhSold, deletePowerSupplyRecord } from '../../../services/powerSupplyService';
 import { formatCurrency } from '../../../lib/utils';
 import PowerSupplyForm from './PowerSupplyForm';
+import FilterBar from '../../ui/FilterBar';
+import RowActions from '../../ui/RowActions';
+import { useDateRange } from '../../../hooks/useDateRange';
+import { inRange } from '../../../utils/dateRange';
+import type { PowerSupplyWithPrice } from '../../../models/powerSupply.types';
 
 interface Props {
   branchId: string;
@@ -19,11 +24,14 @@ const tooltipStyle = { background: 'var(--panel-raised)', border: '1px solid var
 export default function PowerSupplyDashboard({ branchId }: Props) {
   const { data, loading, error, refetch } = usePowerSupplyCost(branchId);
   const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<PowerSupplyWithPrice | null>(null);
+  const { preset, setPreset, custom, setCustom, range } = useDateRange('all');
 
   if (loading) return <div>Loading power supply data...</div>;
   if (error) return <div style={{ color: 'var(--signal-bad)' }}>Error loading power supply data: {error.message}</div>;
 
-  const rows = data ?? [];
+  const all = data ?? [];
+  const rows = all.filter((r) => inRange(r.period_start, range));
   const costTrend = computeCostPerKwhSold(rows);
   const kwhChartData = rows.map((r) => ({ period: r.period_start, purchased: r.kwh_purchased, sold: r.kwh_sold }));
   const costChartData = rows.map((r) => ({ period: r.period_start, purchased_power_cost: r.purchased_power_cost }));
@@ -33,13 +41,29 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0 }}>Power Supply &amp; WESM Pricing</h1>
-        <button onClick={() => setFormOpen(true)}>+ Add Record</button>
+        <button onClick={() => { setEditing(null); setFormOpen(true); }}>+ Add Record</button>
       </div>
       <div className="sld-divider"><span className="sld-node" /></div>
 
-      <PowerSupplyForm branchId={branchId} open={formOpen} onClose={() => setFormOpen(false)} onSaved={refetch} />
+      <PowerSupplyForm
+        branchId={branchId}
+        open={formOpen}
+        editing={editing}
+        onClose={() => { setFormOpen(false); setEditing(null); }}
+        onSaved={refetch}
+      />
 
-      {rows.length === 0 && <div className="card">No power supply records for this branch yet.</div>}
+      <FilterBar
+        preset={preset}
+        onPresetChange={setPreset}
+        custom={custom}
+        onCustomChange={setCustom}
+        range={range}
+        resultNote={`${rows.length} of ${all.length} periods`}
+      />
+
+      {all.length === 0 && <div className="card">No power supply records for this branch yet.</div>}
+      {all.length > 0 && rows.length === 0 && <div className="card">No periods match the selected date range.</div>}
 
       {latest && (
       <div className="card">
@@ -109,6 +133,39 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
             <Line type="monotone" dataKey="wesm_price_per_kwh" stroke="#8CA0B3" name="WESM Price / kWh" strokeDasharray="4 4" />
           </LineChart>
         </ResponsiveContainer>
+      </div>
+
+      <div className="card">
+        <h3>Records</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Purchased (kWh)</th>
+              <th>Sold (kWh)</th>
+              <th>Power Cost</th>
+              <th>WESM Price</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td className="data">{r.period_start} – {r.period_end}</td>
+                <td className="data">{r.kwh_purchased.toLocaleString()}</td>
+                <td className="data">{r.kwh_sold.toLocaleString()}</td>
+                <td className="data">{formatCurrency(r.purchased_power_cost)}</td>
+                <td className="data">{r.wesm_prices ? `${formatCurrency(r.wesm_prices.price_per_kwh)}/kWh` : '—'}</td>
+                <td>
+                  <RowActions
+                    onEdit={() => { setEditing(r); setFormOpen(true); }}
+                    onDelete={async () => { await deletePowerSupplyRecord(r.id); refetch(); }}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
       </>)}
     </div>

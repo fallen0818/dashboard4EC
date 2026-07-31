@@ -43,6 +43,33 @@ export function Field({
   );
 }
 
+interface TextAreaFieldProps {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  placeholder?: string;
+  rows?: number;
+}
+
+export function TextAreaField({ label, name, value, onChange, required = false, placeholder, rows = 3 }: TextAreaFieldProps) {
+  return (
+    <div className="form-field">
+      <label htmlFor={name}>{label}</label>
+      <textarea
+        id={name}
+        name={name}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        placeholder={placeholder}
+        rows={rows}
+      />
+    </div>
+  );
+}
+
 interface SelectFieldProps {
   label: string;
   name: string;

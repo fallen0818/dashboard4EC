@@ -27,3 +27,14 @@ export async function createSystemLossRecord(input: NewSystemLoss): Promise<Syst
   if (error) throw error;
   return data as SystemLossRecord;
 }
+
+export async function updateSystemLossRecord(id: string, input: NewSystemLoss): Promise<SystemLossRecord> {
+  const { data, error } = await supabase.from('system_loss').update(input).eq('id', id).select().single();
+  if (error) throw error;
+  return data as SystemLossRecord;
+}
+
+export async function deleteSystemLossRecord(id: string): Promise<void> {
+  const { error } = await supabase.from('system_loss').delete().eq('id', id);
+  if (error) throw error;
+}

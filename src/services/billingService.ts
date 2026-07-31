@@ -49,6 +49,19 @@ export async function createMember(input: NewMember): Promise<Member> {
   return data as Member;
 }
 
+export async function updateMember(id: string, input: NewMember): Promise<Member> {
+  const { data, error } = await supabase.from('members').update(input).eq('id', id).select().single();
+  if (error) throw error;
+  return data as Member;
+}
+
+// Deleting a member cascades to their meters, bills, payments, etc. via the
+// schema's ON DELETE CASCADE foreign keys — use with care.
+export async function deleteMember(id: string): Promise<void> {
+  const { error } = await supabase.from('members').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export interface NewBill {
   member_id: string;
   billing_period_start: string;
@@ -63,6 +76,17 @@ export async function createBill(input: NewBill): Promise<Bill> {
   const { data, error } = await supabase.from('bills').insert(input).select().single();
   if (error) throw error;
   return data as Bill;
+}
+
+export async function updateBill(id: string, input: NewBill): Promise<Bill> {
+  const { data, error } = await supabase.from('bills').update(input).eq('id', id).select().single();
+  if (error) throw error;
+  return data as Bill;
+}
+
+export async function deleteBill(id: string): Promise<void> {
+  const { error } = await supabase.from('bills').delete().eq('id', id);
+  if (error) throw error;
 }
 
 export interface NewPayment {

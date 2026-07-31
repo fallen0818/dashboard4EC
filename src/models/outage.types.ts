@@ -9,5 +9,8 @@ export interface OutageRecord {
   start_time: string;
   end_time: string | null;
   affected_consumers: number;
+  restoration_report: string | null;
+  restored_by: string | null;
+  restored_at: string | null;
   created_at: string;
 }

@@ -3,7 +3,13 @@
 import { useState } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useMembership } from '../../../hooks/useMembership';
+import { deleteMembershipRecord } from '../../../services/membershipService';
 import MembershipForm from './MembershipForm';
+import FilterBar from '../../ui/FilterBar';
+import RowActions from '../../ui/RowActions';
+import { useDateRange } from '../../../hooks/useDateRange';
+import { inRange } from '../../../utils/dateRange';
+import type { MembershipRecord } from '../../../models/membership.types';
 
 interface Props {
   branchId: string;
@@ -15,11 +21,14 @@ const tooltipStyle = { background: 'var(--panel-raised)', border: '1px solid var
 export default function MembershipDashboard({ branchId }: Props) {
   const { data, loading, error, refetch } = useMembership(branchId);
   const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<MembershipRecord | null>(null);
+  const { preset, setPreset, custom, setCustom, range } = useDateRange('all');
 
   if (loading) return <div>Loading membership data...</div>;
   if (error) return <div style={{ color: 'var(--signal-bad)' }}>Error loading membership data: {error.message}</div>;
 
-  const rows = data ?? [];
+  const all = data ?? [];
+  const rows = all.filter((r) => inRange(r.period_start, range));
   const latest = rows.length > 0 ? rows[rows.length - 1] : null;
   const totalTrend = rows.map((r) => ({ period: r.period_start, total_consumers: r.total_consumers }));
   const flowData = rows.map((r) => ({
@@ -33,13 +42,29 @@ export default function MembershipDashboard({ branchId }: Props) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0 }}>Membership</h1>
-        <button onClick={() => setFormOpen(true)}>+ Add Record</button>
+        <button onClick={() => { setEditing(null); setFormOpen(true); }}>+ Add Record</button>
       </div>
       <div className="sld-divider"><span className="sld-node" /></div>
 
-      <MembershipForm branchId={branchId} open={formOpen} onClose={() => setFormOpen(false)} onSaved={refetch} />
+      <MembershipForm
+        branchId={branchId}
+        open={formOpen}
+        editing={editing}
+        onClose={() => { setFormOpen(false); setEditing(null); }}
+        onSaved={refetch}
+      />
 
-      {rows.length === 0 && <div className="card">No membership records for this branch yet.</div>}
+      <FilterBar
+        preset={preset}
+        onPresetChange={setPreset}
+        custom={custom}
+        onCustomChange={setCustom}
+        range={range}
+        resultNote={`${rows.length} of ${all.length} periods`}
+      />
+
+      {all.length === 0 && <div className="card">No membership records for this branch yet.</div>}
+      {all.length > 0 && rows.length === 0 && <div className="card">No periods match the selected date range.</div>}
 
       {latest && (
       <div className="card">
@@ -93,6 +118,39 @@ export default function MembershipDashboard({ branchId }: Props) {
             <Bar dataKey="reconnections" fill="#E2B33F" name="Reconnected" />
           </BarChart>
         </ResponsiveContainer>
+      </div>
+
+      <div className="card">
+        <h3>Records</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Total Consumers</th>
+              <th>New</th>
+              <th>Disconnected</th>
+              <th>Reconnected</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td className="data">{r.period_start} – {r.period_end}</td>
+                <td className="data">{r.total_consumers.toLocaleString()}</td>
+                <td className="data good">{r.new_connections}</td>
+                <td className="data bad">{r.disconnections}</td>
+                <td className="data">{r.reconnections}</td>
+                <td>
+                  <RowActions
+                    onEdit={() => { setEditing(r); setFormOpen(true); }}
+                    onDelete={async () => { await deleteMembershipRecord(r.id); refetch(); }}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
       </>)}
     </div>

@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import FormModal from '../../ui/FormModal';
 import { Field } from '../../ui/fields';
-import { createMembershipRecord } from '../../../services/membershipService';
+import { createMembershipRecord, updateMembershipRecord } from '../../../services/membershipService';
+import type { MembershipRecord } from '../../../models/membership.types';
 
 interface Props {
   branchId: string;
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  editing?: MembershipRecord | null;
 }
 
-export default function MembershipForm({ branchId, open, onClose, onSaved }: Props) {
+export default function MembershipForm({ branchId, open, onClose, onSaved, editing }: Props) {
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
   const [totalConsumers, setTotalConsumers] = useState('');
@@ -22,12 +24,28 @@ export default function MembershipForm({ branchId, open, onClose, onSaved }: Pro
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setPeriodStart(editing.period_start);
+      setPeriodEnd(editing.period_end);
+      setTotalConsumers(String(editing.total_consumers));
+      setNewConnections(String(editing.new_connections));
+      setDisconnections(String(editing.disconnections));
+      setReconnections(String(editing.reconnections));
+    } else {
+      setPeriodStart(''); setPeriodEnd(''); setTotalConsumers('');
+      setNewConnections('0'); setDisconnections('0'); setReconnections('0');
+    }
+    setError(null);
+  }, [open, editing]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      await createMembershipRecord({
+      const payload = {
         branch_id: branchId,
         period_start: periodStart,
         period_end: periodEnd,
@@ -35,9 +53,9 @@ export default function MembershipForm({ branchId, open, onClose, onSaved }: Pro
         new_connections: Number(newConnections),
         disconnections: Number(disconnections),
         reconnections: Number(reconnections),
-      });
-      setPeriodStart(''); setPeriodEnd(''); setTotalConsumers('');
-      setNewConnections('0'); setDisconnections('0'); setReconnections('0');
+      };
+      if (editing) await updateMembershipRecord(editing.id, payload);
+      else await createMembershipRecord(payload);
       onSaved();
       onClose();
     } catch (err) {
@@ -49,13 +67,13 @@ export default function MembershipForm({ branchId, open, onClose, onSaved }: Pro
 
   return (
     <FormModal
-      title="Add Membership Record"
+      title={editing ? 'Edit Membership Record' : 'Add Membership Record'}
       open={open}
       onClose={onClose}
       onSubmit={handleSubmit}
       submitting={submitting}
       error={error}
-      submitLabel="Save record"
+      submitLabel={editing ? 'Update record' : 'Save record'}
     >
       <Field label="Period Start" name="period_start" type="date" value={periodStart} onChange={setPeriodStart} required />
       <Field label="Period End" name="period_end" type="date" value={periodEnd} onChange={setPeriodEnd} required />

@@ -27,3 +27,14 @@ export async function createMembershipRecord(input: NewMembership): Promise<Memb
   if (error) throw error;
   return data as MembershipRecord;
 }
+
+export async function updateMembershipRecord(id: string, input: NewMembership): Promise<MembershipRecord> {
+  const { data, error } = await supabase.from('membership').update(input).eq('id', id).select().single();
+  if (error) throw error;
+  return data as MembershipRecord;
+}
+
+export async function deleteMembershipRecord(id: string): Promise<void> {
+  const { error } = await supabase.from('membership').delete().eq('id', id);
+  if (error) throw error;
+}

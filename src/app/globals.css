@@ -298,6 +298,78 @@ button.secondary {
 }
 button.secondary:hover { color: var(--text-primary); border-color: var(--text-muted); background: transparent; }
 
+/* ============================================
+   Filter bar
+   ============================================ */
+.filter-bar {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.filter-chip {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 11px;
+  cursor: pointer;
+}
+.filter-chip:hover { color: var(--text-primary); border-color: var(--text-muted); background: transparent; }
+.filter-chip.active {
+  color: var(--ink);
+  background: var(--copper);
+  border-color: var(--copper);
+}
+.filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+  align-items: flex-end;
+}
+.filter-control {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.filter-control label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.filter-control input,
+.filter-control select {
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color-scheme: dark;
+}
+.filter-control input:focus,
+.filter-control select:focus { outline: none; border-color: var(--copper); }
+.filter-summary {
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
