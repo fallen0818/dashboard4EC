@@ -13,7 +13,7 @@ import {
   getSuppliersForBranch,
   deleteSupplier,
 } from '../../../services/powerSupplyService';
-import { formatCurrency } from '../../../lib/utils';
+import { formatCurrency, formatRate } from '../../../lib/utils';
 import PowerSupplyForm from './PowerSupplyForm';
 import SupplierForm from './SupplierForm';
 import FilterBar from '../../ui/FilterBar';
@@ -157,7 +157,7 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
             </div>
             <div className="stat">
               <span className="stat-label">Blended Cost / kWh</span>
-              <span className="stat-value data">{formatCurrency(latest.cost_per_kwh)}</span>
+              <span className="stat-value data">{formatRate(latest.cost_per_kwh)}</span>
             </div>
             <div className="stat">
               <span className="stat-label">Suppliers</span>
@@ -192,7 +192,12 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
             <XAxis dataKey="period_start" stroke="var(--text-muted)" style={axisStyle} />
             <YAxis yAxisId="cost" stroke="var(--text-muted)" style={axisStyle} />
             <YAxis yAxisId="rate" orientation="right" stroke="var(--text-muted)" style={axisStyle} />
-            <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => formatCurrency(value)} />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              formatter={(value: number, name: string) =>
+                name === '₱/kWh' ? formatRate(value) : formatCurrency(value)
+              }
+            />
             <Legend />
             <Line yAxisId="cost" type="monotone" dataKey="total_cost" stroke="#E2903F" name="Total Cost (₱)" strokeWidth={2} />
             <Line yAxisId="rate" type="monotone" dataKey="cost_per_kwh" stroke="#8CA0B3" name="₱/kWh" strokeDasharray="4 4" />
@@ -213,7 +218,7 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
                 <td>{TYPE_LABEL[s.supplier_type] ?? s.supplier_type}</td>
                 <td className="data">{s.total_kwh.toLocaleString()}</td>
                 <td className="data">{formatCurrency(s.total_cost)}</td>
-                <td className="data">{s.total_kwh > 0 ? formatCurrency(s.total_cost / s.total_kwh) : '—'}</td>
+                <td className="data">{s.total_kwh > 0 ? formatRate(s.total_cost / s.total_kwh) : '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -224,7 +229,7 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
               <td className="data">{breakdownTotalKwh.toLocaleString()}</td>
               <td className="data">{formatCurrency(breakdownTotalCost)}</td>
               <td className="data">
-                {breakdownTotalKwh > 0 ? formatCurrency(breakdownTotalCost / breakdownTotalKwh) : '—'}
+                {breakdownTotalKwh > 0 ? formatRate(breakdownTotalCost / breakdownTotalKwh) : '—'}
               </td>
             </tr>
           </tfoot>
@@ -251,7 +256,7 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
                 <td>{r.power_suppliers?.code ?? '—'}</td>
                 <td className="data">{r.kwh_purchased.toLocaleString()}</td>
                 <td className="data">{formatCurrency(r.purchased_power_cost)}</td>
-                <td className="data">{r.kwh_purchased > 0 ? formatCurrency(r.purchased_power_cost / r.kwh_purchased) : '—'}</td>
+                <td className="data">{r.kwh_purchased > 0 ? formatRate(r.purchased_power_cost / r.kwh_purchased) : '—'}</td>
                 <td>
                   <RowActions
                     onEdit={() => { setEditing(r); setFormOpen(true); }}
