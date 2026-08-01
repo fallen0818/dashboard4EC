@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getPowerSupplyData } from '../services/powerSupplyService';
-import type { PowerSupplyWithPrice } from '../models/powerSupply.types';
+import type { PowerSupplyWithRefs } from '../models/powerSupply.types';
 
 export function usePowerSupplyCost(branchId: string) {
-  const [data, setData] = useState<PowerSupplyWithPrice[] | null>(null);
+  const [data, setData] = useState<PowerSupplyWithRefs[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [reloadKey, setReloadKey] = useState(0);

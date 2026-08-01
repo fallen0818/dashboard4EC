@@ -96,37 +96,19 @@ export interface NewPayment {
 }
 
 /**
- * Record a payment and reconcile the parent bill's amount_paid + status.
- * Two round-trips (fetch bill, insert payment, update bill) — for strict
- * atomicity move this into a Postgres function/RPC, but this is adequate for
- * single-operator branch entry.
+ * Record a payment and reconcile the parent bill's amount_paid + status in a
+ * single atomic transaction via the `record_payment` Postgres function
+ * (migration 0010). This replaces the previous three-round-trip client logic,
+ * which could leave a payment inserted but the bill un-reconciled on failure.
  */
 export async function createPayment(input: NewPayment): Promise<Payment> {
-  const { data: bill, error: billErr } = await supabase
-    .from('bills')
-    .select('total_amount, amount_paid')
-    .eq('id', input.bill_id)
-    .single();
-  if (billErr) throw billErr;
-
-  const { data: payment, error: payErr } = await supabase
-    .from('payments')
-    .insert(input)
-    .select()
-    .single();
-  if (payErr) throw payErr;
-
-  const newPaid = Number(bill.amount_paid) + input.amount;
-  const total = Number(bill.total_amount);
-  const status: Bill['status'] = newPaid >= total ? 'paid' : newPaid > 0 ? 'partial' : 'unpaid';
-
-  const { error: updErr } = await supabase
-    .from('bills')
-    .update({ amount_paid: newPaid, status })
-    .eq('id', input.bill_id);
-  if (updErr) throw updErr;
-
-  return payment as Payment;
+  const { data, error } = await supabase.rpc('record_payment', {
+    p_bill_id: input.bill_id,
+    p_amount: input.amount,
+    p_payment_method: input.payment_method,
+  });
+  if (error) throw error;
+  return data as Payment;
 }
 
 /**
