@@ -16,7 +16,7 @@ import {
 import { formatCurrency, formatRate } from '../../../lib/utils';
 import PowerSupplyForm from './PowerSupplyForm';
 import SupplierForm from './SupplierForm';
-import FilterBar from '../../ui/FilterBar';
+import FilterBar, { FilterSelect } from '../../ui/FilterBar';
 import RowActions from '../../ui/RowActions';
 import { useDateRange } from '../../../hooks/useDateRange';
 import { inRange } from '../../../utils/dateRange';
@@ -44,6 +44,8 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
   const [supplierFormOpen, setSupplierFormOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<PowerSupplier | null>(null);
   const { preset, setPreset, custom, setCustom, range } = useDateRange('all');
+  const [supplierFilter, setSupplierFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   const loadSuppliers = useCallback(() => {
     getSuppliersForBranch(branchId).then(setSuppliers).catch(() => setSuppliers([]));
@@ -57,7 +59,12 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
   if (error) return <div style={{ color: 'var(--signal-bad)' }}>Error loading power supply data: {error.message}</div>;
 
   const all = data ?? [];
-  const rows = all.filter((r) => inRange(r.period_start, range));
+  const rows = all.filter((r) => {
+    if (!inRange(r.period_start, range)) return false;
+    if (supplierFilter !== 'all' && r.supplier_id !== supplierFilter) return false;
+    if (typeFilter !== 'all' && r.power_suppliers?.supplier_type !== typeFilter) return false;
+    return true;
+  });
   const periodTotals = computePeriodTotals(rows);
   const supplierMix = computeSupplierMix(rows);
   const supplierBreakdown = computeSupplierBreakdown(rows);
@@ -96,8 +103,29 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
         custom={custom}
         onCustomChange={setCustom}
         range={range}
-        resultNote={`${rows.length} records · ${periodTotals.length} periods`}
-      />
+        resultNote={`${rows.length} of ${all.length} records · ${periodTotals.length} periods`}
+      >
+        <FilterSelect
+          label="Supplier"
+          value={supplierFilter}
+          onChange={setSupplierFilter}
+          options={[
+            { value: 'all', label: 'All suppliers' },
+            ...suppliers.map((s) => ({ value: s.id, label: s.code })),
+          ]}
+        />
+        <FilterSelect
+          label="Type"
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={[
+            { value: 'all', label: 'All types' },
+            { value: 'bilateral', label: 'Bilateral / PSA' },
+            { value: 'wesm', label: 'WESM' },
+            { value: 'net_metering', label: 'Net Metering' },
+          ]}
+        />
+      </FilterBar>
 
       {/* ---- Supplier management ---- */}
       <div className="card">
@@ -141,7 +169,7 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
       </div>
 
       {all.length === 0 && <div className="card">No power supply records for this branch yet.</div>}
-      {all.length > 0 && rows.length === 0 && <div className="card">No records match the selected date range.</div>}
+      {all.length > 0 && rows.length === 0 && <div className="card">No records match the current filters.</div>}
 
       {latest && (
         <div className="card">
