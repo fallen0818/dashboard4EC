@@ -1,4 +1,5 @@
 import { supabase } from './supabase/client';
+import { buildCsv, parseCsv } from '../lib/csv';
 import type {
   PowerSupplyWithRefs,
   PowerSupplyRecord,
@@ -156,6 +157,177 @@ export async function updatePowerSupplyRecord(
 export async function deletePowerSupplyRecord(id: string): Promise<void> {
   const { error } = await supabase.from('power_supply').delete().eq('id', id);
   if (error) throw error;
+}
+
+/**
+ * Insert many records in a single statement (used by CSV import). Postgres
+ * runs a multi-row INSERT as one statement, so this is all-or-nothing: if any
+ * row violates a constraint (e.g. duplicate branch+supplier+period), none of
+ * them are inserted.
+ */
+export async function bulkInsertPowerSupplyRecords(
+  records: NewPowerSupply[]
+): Promise<PowerSupplyRecord[]> {
+  const { data, error } = await supabase.from('power_supply').insert(records).select();
+  if (error) throw error;
+  return data as PowerSupplyRecord[];
+}
+
+// ============================================================================
+// CSV export / import
+// ============================================================================
+
+const CSV_HEADERS = [
+  'period_start',
+  'period_end',
+  'supplier_code',
+  'kwh_purchased',
+  'purchased_power_cost',
+  'generation_charge',
+  'transmission_charge',
+  'system_loss_charge',
+];
+
+/** Serialize records (as returned by getPowerSupplyData) into CSV text. */
+export function exportPowerSupplyCsv(records: PowerSupplyWithRefs[]): string {
+  const rows = records.map((r) => [
+    r.period_start,
+    r.period_end,
+    r.power_suppliers?.code ?? '',
+    r.kwh_purchased,
+    r.purchased_power_cost,
+    r.generation_charge,
+    r.transmission_charge,
+    r.system_loss_charge,
+  ]);
+  return buildCsv(CSV_HEADERS, rows);
+}
+
+/** A ready-to-download blank template matching the import format. */
+export function powerSupplyCsvTemplate(): string {
+  return buildCsv(CSV_HEADERS, [
+    ['2026-05-01', '2026-05-31', 'TLI', 500000, 2750000, '', '', ''],
+  ]);
+}
+
+export interface ImportRowResult {
+  row: number; // 1-based, matching the CSV file's line numbers (header = 1)
+  record: NewPowerSupply | null;
+  errors: string[];
+}
+
+export interface ParsedPowerSupplyImport {
+  results: ImportRowResult[];
+  valid: NewPowerSupply[];
+  errorCount: number;
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseOptionalNumber(raw: string, field: string, errors: string[]): number | null {
+  if (raw.trim() === '') return null;
+  const n = Number(raw);
+  if (Number.isNaN(n)) { errors.push(`${field}: "${raw}" is not a number`); return null; }
+  return n;
+}
+
+/**
+ * Parse and validate CSV text against the branch's known suppliers. Expects
+ * the header row produced by exportPowerSupplyCsv / powerSupplyCsvTemplate
+ * (column order does not matter, matched by name; unknown columns ignored).
+ */
+export function parsePowerSupplyImportCsv(
+  text: string,
+  branchId: string,
+  suppliers: PowerSupplier[]
+): ParsedPowerSupplyImport {
+  const table = parseCsv(text);
+  const results: ImportRowResult[] = [];
+
+  if (table.length === 0) {
+    return { results: [], valid: [], errorCount: 0 };
+  }
+
+  const header = table[0].map((h) => h.trim().toLowerCase());
+  const colIndex = (name: string) => header.indexOf(name);
+  const idx = {
+    period_start: colIndex('period_start'),
+    period_end: colIndex('period_end'),
+    supplier_code: colIndex('supplier_code'),
+    kwh_purchased: colIndex('kwh_purchased'),
+    purchased_power_cost: colIndex('purchased_power_cost'),
+    generation_charge: colIndex('generation_charge'),
+    transmission_charge: colIndex('transmission_charge'),
+    system_loss_charge: colIndex('system_loss_charge'),
+  };
+
+  const missingCols = (['period_start', 'period_end', 'supplier_code', 'kwh_purchased', 'purchased_power_cost'] as const)
+    .filter((k) => idx[k] === -1);
+  if (missingCols.length > 0) {
+    return {
+      results: [{
+        row: 1,
+        record: null,
+        errors: [`Missing required column(s): ${missingCols.join(', ')}`],
+      }],
+      valid: [],
+      errorCount: 1,
+    };
+  }
+
+  const suppliersByCode = new Map(suppliers.map((s) => [s.code.trim().toUpperCase(), s]));
+
+  for (let i = 1; i < table.length; i++) {
+    const cols = table[i];
+    if (cols.length === 1 && cols[0].trim() === '') continue; // blank line
+    const errors: string[] = [];
+
+    const periodStart = (cols[idx.period_start] ?? '').trim();
+    const periodEnd = (cols[idx.period_end] ?? '').trim();
+    const supplierCode = (cols[idx.supplier_code] ?? '').trim();
+    const kwhRaw = (cols[idx.kwh_purchased] ?? '').trim();
+    const costRaw = (cols[idx.purchased_power_cost] ?? '').trim();
+
+    if (!DATE_RE.test(periodStart)) errors.push(`period_start: "${periodStart}" is not YYYY-MM-DD`);
+    if (!DATE_RE.test(periodEnd)) errors.push(`period_end: "${periodEnd}" is not YYYY-MM-DD`);
+    if (DATE_RE.test(periodStart) && DATE_RE.test(periodEnd) && periodEnd < periodStart) {
+      errors.push('period_end is before period_start');
+    }
+
+    const supplier = suppliersByCode.get(supplierCode.toUpperCase());
+    if (!supplierCode) errors.push('supplier_code is required');
+    else if (!supplier) errors.push(`supplier_code: unknown supplier "${supplierCode}"`);
+
+    const kwhPurchased = Number(kwhRaw);
+    if (kwhRaw === '' || Number.isNaN(kwhPurchased)) errors.push(`kwh_purchased: "${kwhRaw}" is not a number`);
+
+    const purchasedCost = Number(costRaw);
+    if (costRaw === '' || Number.isNaN(purchasedCost)) errors.push(`purchased_power_cost: "${costRaw}" is not a number`);
+
+    const genCharge = parseOptionalNumber(cols[idx.generation_charge] ?? '', 'generation_charge', errors);
+    const transCharge = parseOptionalNumber(cols[idx.transmission_charge] ?? '', 'transmission_charge', errors);
+    const lossCharge = parseOptionalNumber(cols[idx.system_loss_charge] ?? '', 'system_loss_charge', errors);
+
+    const record: NewPowerSupply | null = errors.length === 0 && supplier ? {
+      branch_id: branchId,
+      supplier_id: supplier.id,
+      wesm_price_id: null,
+      period_start: periodStart,
+      period_end: periodEnd,
+      kwh_purchased: kwhPurchased,
+      purchased_power_cost: purchasedCost,
+      generation_charge: genCharge,
+      transmission_charge: transCharge,
+      system_loss_charge: lossCharge,
+    } : null;
+
+    results.push({ row: i + 1, record, errors });
+  }
+
+  const valid = results.filter((r) => r.record !== null).map((r) => r.record!);
+  const errorCount = results.filter((r) => r.errors.length > 0).length;
+
+  return { results, valid, errorCount };
 }
 
 // ============================================================================

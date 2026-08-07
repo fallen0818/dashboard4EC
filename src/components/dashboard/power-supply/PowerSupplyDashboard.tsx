@@ -12,10 +12,13 @@ import {
   deletePowerSupplyRecord,
   getSuppliersForBranch,
   deleteSupplier,
+  exportPowerSupplyCsv,
 } from '../../../services/powerSupplyService';
 import { formatCurrency, formatRate } from '../../../lib/utils';
+import { downloadCsv } from '../../../lib/csv';
 import PowerSupplyForm from './PowerSupplyForm';
 import SupplierForm from './SupplierForm';
+import PowerSupplyImportModal from './PowerSupplyImportModal';
 import FilterBar, { FilterSelect } from '../../ui/FilterBar';
 import RowActions from '../../ui/RowActions';
 import { useDateRange } from '../../../hooks/useDateRange';
@@ -43,6 +46,7 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
   const [editing, setEditing] = useState<PowerSupplyWithRefs | null>(null);
   const [supplierFormOpen, setSupplierFormOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<PowerSupplier | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const { preset, setPreset, custom, setCustom, range } = useDateRange('all');
   const [supplierFilter, setSupplierFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -78,7 +82,17 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0 }}>Power Supply by Supplier</h1>
-        <button onClick={() => { setEditing(null); setFormOpen(true); }}>+ Add Record</button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            className="secondary"
+            onClick={() => downloadCsv(`power_supply_${branchId}.csv`, exportPowerSupplyCsv(rows))}
+            disabled={rows.length === 0}
+          >
+            Export CSV
+          </button>
+          <button className="secondary" onClick={() => setImportOpen(true)}>Import CSV</button>
+          <button onClick={() => { setEditing(null); setFormOpen(true); }}>+ Add Record</button>
+        </div>
       </div>
       <div className="sld-divider"><span className="sld-node" /></div>
 
@@ -95,6 +109,13 @@ export default function PowerSupplyDashboard({ branchId }: Props) {
         editing={editingSupplier}
         onClose={() => { setSupplierFormOpen(false); setEditingSupplier(null); }}
         onSaved={() => { loadSuppliers(); refetch(); }}
+      />
+      <PowerSupplyImportModal
+        branchId={branchId}
+        suppliers={suppliers}
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={refetch}
       />
 
       <FilterBar
