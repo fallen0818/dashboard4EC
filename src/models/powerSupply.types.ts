@@ -9,6 +9,7 @@ export interface PowerSupplier {
   name: string;
   supplier_type: SupplierType;
   active: boolean;
+  sort_order: number;
   created_at: string;
 }
 
@@ -39,6 +40,6 @@ export interface PowerSupplyRecord {
 // Shape returned by the joined query in powerSupplyService: each record carries
 // its supplier and (for WESM rows) the matching spot price.
 export interface PowerSupplyWithRefs extends PowerSupplyRecord {
-  power_suppliers: Pick<PowerSupplier, 'code' | 'name' | 'supplier_type'> | null;
+  power_suppliers: Pick<PowerSupplier, 'code' | 'name' | 'supplier_type' | 'sort_order'> | null;
   wesm_prices: Pick<WesmPrice, 'grid_region' | 'price_per_kwh'> | null;
 }

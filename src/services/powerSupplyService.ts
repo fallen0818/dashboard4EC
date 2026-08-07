@@ -16,8 +16,7 @@ export async function getSuppliersForBranch(branchId: string): Promise<PowerSupp
     .from('power_suppliers')
     .select('*')
     .eq('branch_id', branchId)
-    .order('supplier_type', { ascending: true })
-    .order('code', { ascending: true });
+    .order('sort_order', { ascending: true });
 
   if (error) throw error;
   return data as PowerSupplier[];
@@ -60,8 +59,8 @@ export async function deleteSupplier(id: string): Promise<void> {
 
 /**
  * Fetch power supply records for a branch, each joined with its supplier and
- * (for WESM rows) the matching spot price. Ordered by period then supplier code
- * so the dashboard can group cleanly.
+ * (for WESM rows) the matching spot price. Ordered by period (most recent
+ * first), then by each supplier's sort_order.
  */
 export async function getPowerSupplyData(branchId: string): Promise<PowerSupplyWithRefs[]> {
   const { data, error } = await supabase
@@ -80,12 +79,13 @@ export async function getPowerSupplyData(branchId: string): Promise<PowerSupplyW
       transmission_charge,
       system_loss_charge,
       created_at,
-      power_suppliers ( code, name, supplier_type ),
+      power_suppliers ( code, name, supplier_type, sort_order ),
       wesm_prices ( grid_region, price_per_kwh )
     `
     )
     .eq('branch_id', branchId)
-    .order('period_start', { ascending: true });
+    .order('period_start', { ascending: false })
+    .order('sort_order', { ascending: true, foreignTable: 'power_suppliers' });
 
   if (error) throw error;
   return data as unknown as PowerSupplyWithRefs[];
