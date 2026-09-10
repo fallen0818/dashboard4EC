@@ -1,12 +1,27 @@
 import { supabase } from './supabaseClient';
 
+export type ConnectionType =
+  | 'all'
+  | 'residential'
+  | 'commercial'
+  | 'industrial'
+  | 'government'
+  | 'streetlights'
+  | 'others';
+
+export const CONNECTION_TYPES: ConnectionType[] = [
+  'all', 'residential', 'commercial', 'industrial',
+  'government', 'streetlights', 'others',
+];
+
 export interface MembershipRow {
   id: string;
   branch_id: string;
   period: string;
   branch_name: string;
-  connection_type: string;
+  connection_type: ConnectionType;
   consumer_count: number;
+  energy_kwh: number;
 }
 
 type Raw = {
@@ -14,17 +29,17 @@ type Raw = {
   branch_id: string;
   period_start: string;
   total_consumers: number;
+  energy_kwh: number;
+  connection_type: ConnectionType;
   branches: { name: string } | null;
 };
 
-// The live schema has no connection_type breakdown on `membership` —
-// it stores a single `total_consumers` per branch/period. We surface
-// each row as connection_type='all' so the existing UI still works.
 export async function getMembership(): Promise<MembershipRow[]> {
   const { data, error } = await supabase
     .from('membership')
-    .select(`id, branch_id, period_start, total_consumers, branches ( name )`)
-    .order('period_start', { ascending: false });
+    .select(`id, branch_id, period_start, total_consumers, energy_kwh, connection_type, branches ( name )`)
+    .order('period_start', { ascending: false })
+    .order('connection_type', { ascending: true });
 
   if (error) throw new Error(`Failed to fetch membership: ${error.message}`);
 
@@ -33,16 +48,18 @@ export async function getMembership(): Promise<MembershipRow[]> {
     branch_id: r.branch_id,
     period: r.period_start,
     branch_name: r.branches?.name ?? 'Unknown',
-    connection_type: 'all',
+    connection_type: r.connection_type,
     consumer_count: Number(r.total_consumers) || 0,
+    energy_kwh: Number(r.energy_kwh) || 0,
   }));
 }
 
 export interface NewMembership {
   branch_id: string;
   period: string;
-  connection_type: string; // ignored — schema has no such column
+  connection_type: ConnectionType;
   consumer_count: number;
+  energy_kwh: number;
 }
 
 function toDbRow(entry: NewMembership) {
@@ -51,6 +68,8 @@ function toDbRow(entry: NewMembership) {
     period_start: entry.period,
     period_end: endOfMonth(entry.period),
     total_consumers: entry.consumer_count,
+    energy_kwh: entry.energy_kwh,
+    connection_type: entry.connection_type,
   };
 }
 
