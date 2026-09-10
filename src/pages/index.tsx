@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useDashboard } from '../hooks/useDashboard';
 import { useAuth } from '../hooks/useAuth';
+import { useRole } from '../hooks/useRole';
 import {
   PeriodMode,
   PeriodRange,
@@ -27,6 +28,7 @@ function formatDuration(minutes: number): string {
 }
 
 export default function DashboardOverviewPage() {
+  const { isAdmin } = useRole();
   const [mode, setMode] = useState<PeriodMode>('month');
   const [months, setMonths] = useState<string[]>([]);   // YYYY-MM-01, newest first
   const [years, setYears] = useState<number[]>([]);     // newest first
@@ -276,6 +278,18 @@ export default function DashboardOverviewPage() {
             </div>
             <span className="text-[#6C74A8] group-hover:text-[#F5F0FF] transition-colors">→</span>
           </Link>
+          {isAdmin && (
+            <Link
+              href="/users"
+              className="flex justify-between items-center border border-[#2C3168] rounded-lg px-5 py-4 hover:bg-[#171A38] transition-colors group"
+            >
+              <div>
+                <p className="text-sm font-medium">Users &amp; Roles</p>
+                <p className="font-mono text-xs text-[#9CA3D9] mt-0.5">Admin · assign admin / editor / viewer</p>
+              </div>
+              <span className="text-[#6C74A8] group-hover:text-[#F5F0FF] transition-colors">→</span>
+            </Link>
+          )}
         </div>
       </div>
     </div>
@@ -284,9 +298,25 @@ export default function DashboardOverviewPage() {
 
 function SignOutButton() {
   const { user, signOut } = useAuth();
+  const { role } = useRole();
   return (
     <div className="text-right">
-      {user && <p className="font-mono text-xs text-[#9CA3D9] mb-2">{user.email}</p>}
+      {user && (
+        <p className="font-mono text-xs text-[#9CA3D9] mb-2">
+          {user.email}
+          {role && (
+            <span
+              className="ml-2 font-mono text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full border"
+              style={{
+                color: role === 'admin' ? '#8B5CF6' : role === 'editor' ? '#22F0B0' : '#9CA3D9',
+                borderColor: (role === 'admin' ? '#8B5CF6' : role === 'editor' ? '#22F0B0' : '#9CA3D9') + '55',
+              }}
+            >
+              {role}
+            </span>
+          )}
+        </p>
+      )}
       <button
         onClick={signOut}
         className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#FF4D6D]"

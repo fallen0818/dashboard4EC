@@ -2,31 +2,25 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../hooks/useAuth';
 
+// Sign-in only. Public sign-ups are disabled in Supabase Auth; new
+// accounts are created by an admin via the Supabase dashboard, and their
+// role is assigned in /users afterwards.
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    setMessage(null);
     try {
-      if (mode === 'signin') {
-        await signIn(email, password);
-        router.push('/');
-      } else {
-        await signUp(email, password);
-        setMessage('Account created. Check your email to confirm, then sign in.');
-        setMode('signin');
-      }
+      await signIn(email, password);
+      router.push('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -40,9 +34,7 @@ export default function LoginPage() {
         <p className="font-mono text-xs tracking-[0.2em] text-[#9CA3D9] uppercase mb-2 text-center">
           Cooperative Report
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-center mb-8">
-          {mode === 'signin' ? 'Sign in' : 'Create account'}
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-center mb-8">Sign in</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -72,27 +64,19 @@ export default function LoginPage() {
           </div>
 
           {error && <p className="font-mono text-xs text-[#FF4D6D]">{error}</p>}
-          {message && <p className="font-mono text-xs text-[#22F0B0]">{message}</p>}
 
           <button
             type="submit"
             disabled={submitting}
             className="w-full bg-[#F5F0FF] text-[#08091C] font-medium py-2.5 rounded hover:bg-white transition-colors disabled:opacity-50"
           >
-            {submitting ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Sign up'}
+            {submitting ? 'Please wait…' : 'Sign in'}
           </button>
         </form>
 
-        <button
-          onClick={() => {
-            setMode(mode === 'signin' ? 'signup' : 'signin');
-            setError(null);
-            setMessage(null);
-          }}
-          className="w-full text-center font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] mt-6"
-        >
-          {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-        </button>
+        <p className="mt-6 text-center font-mono text-[11px] text-[#6C74A8]">
+          New accounts are created by an admin. Ask them to invite you if you can&apos;t sign in.
+        </p>
       </div>
     </div>
   );

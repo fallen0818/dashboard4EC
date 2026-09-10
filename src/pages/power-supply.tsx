@@ -14,6 +14,7 @@ import Modal from "../components/Modal";
 import CsvIO, { CsvSchema } from "../components/CsvIO";
 import { parseFlexibleDate } from "../lib/dates";
 import { usePowerSupply } from "../hooks/usePowerSupply";
+import { useRole } from "../hooks/useRole";
 import {
   createPowerSupply,
   updatePowerSupply,
@@ -78,6 +79,7 @@ const EMPTY_FILTERS: Filters = {
 
 export default function PowerSupplyPage() {
   const { rows, loading, error, refresh } = usePowerSupply();
+  const { canWrite, canDelete } = useRole();
 
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -261,7 +263,8 @@ export default function PowerSupplyPage() {
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-2">
-              <button
+              {canWrite && (
+                <button
                 onClick={() => setShowSuppliers((v) => !v)}
                 className={`font-mono text-xs uppercase tracking-wide border rounded px-3 py-1.5 transition-colors ${
                   showSuppliers
@@ -271,14 +274,17 @@ export default function PowerSupplyPage() {
               >
                 Manage Suppliers
               </button>
-              <button
+              )}
+              {(canWrite || showForm) && (
+            <button
                 onClick={() => (showForm ? resetForm() : setShowForm(true))}
                 className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
               >
                 {showForm ? "Cancel" : "+ Add Entry"}
               </button>
+          )}
             </div>
-            <CsvIO rows={rows} schema={powerSupplyCsvSchema(refresh)} onAfterImport={refresh} />
+            <CsvIO rows={rows} schema={powerSupplyCsvSchema(refresh)} onAfterImport={refresh} canImport={canWrite} />
           </div>
         </header>
 
@@ -447,15 +453,15 @@ export default function PowerSupplyPage() {
                     <td className="py-2.5 text-right font-mono tabular-nums">{formatCurrency(r.power_cost)}</td>
                     <td className="py-2.5 text-right font-mono tabular-nums">{formatRate(r.rate)}</td>
                     <td className="py-2.5 text-right whitespace-nowrap">
-                      <button onClick={() => startEdit(r)} className="font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] mr-3">Edit</button>
-                      {confirmingId === r.id ? (
+                      {canWrite && <button onClick={() => startEdit(r)} className="font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] mr-3">Edit</button>}
+                      {canDelete && (confirmingId === r.id ? (
                         <>
                           <button onClick={() => handleDelete(r.id)} className="font-mono text-xs text-[#FF4D6D] mr-2">Confirm</button>
                           <button onClick={() => setConfirmingId(null)} className="font-mono text-xs text-[#9CA3D9]">Cancel</button>
                         </>
                       ) : (
                         <button onClick={() => setConfirmingId(r.id)} className="font-mono text-xs text-[#9CA3D9] hover:text-[#FF4D6D]">Delete</button>
-                      )}
+                      ))}
                     </td>
                   </tr>
                 ))

@@ -11,6 +11,7 @@ import {
   Cell,
 } from "recharts";
 import { useMembership } from "../hooks/useMembership";
+import { useRole } from "../hooks/useRole";
 import {
   createMembership,
   MembershipRow,
@@ -62,6 +63,7 @@ export default function MembershipPage() {
     error,
     refresh,
   } = useMembership();
+  const { canWrite, canDelete } = useRole();
 
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -183,13 +185,15 @@ export default function MembershipPage() {
             </h1>
           </div>
           <div className="flex flex-col items-end gap-2">
+            {(canWrite || showForm) && (
             <button
             onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
           >
             {showForm ? "Cancel" : "+ Add Entry"}
           </button>
-            <CsvIO rows={rows} schema={membershipCsvSchema()} onAfterImport={refresh} />
+          )}
+            <CsvIO rows={rows} schema={membershipCsvSchema()} onAfterImport={refresh} canImport={canWrite} />
           </div>
         </header>
 
@@ -373,13 +377,13 @@ export default function MembershipPage() {
                     {formatNumber(r.consumer_count)}
                   </td>
                   <td className="py-2.5 text-right whitespace-nowrap">
-                    <button
+                    {canWrite && <button
                       onClick={() => startEdit(r)}
                       className="font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] mr-3"
                     >
                       Edit
-                    </button>
-                    {confirmingId === r.id ? (
+                    </button>}
+                    {canDelete && (confirmingId === r.id ? (
                       <>
                         <button
                           onClick={() => handleDelete(r.id)}
@@ -401,7 +405,7 @@ export default function MembershipPage() {
                       >
                         Delete
                       </button>
-                    )}
+                    ))}
                   </td>
                 </tr>
               ))}

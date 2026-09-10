@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import Modal from "../components/Modal";
 import { useSystemLoss } from "../hooks/useSystemLoss";
+import { useRole } from "../hooks/useRole";
 import {
   createSystemLoss,
   updateSystemLoss,
@@ -43,6 +44,7 @@ function formatWithCommas(v: string | number): string {
 
 export default function SystemLossPage() {
   const { rows, trend, loading, error, refresh } = useSystemLoss();
+  const { canWrite, canDelete } = useRole();
 
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -164,13 +166,15 @@ export default function SystemLossPage() {
             </h1>
           </div>
           <div className="flex flex-col items-end gap-2">
+            {(canWrite || showForm) && (
             <button
             onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
           >
             {showForm ? "Cancel" : "+ Add Entry"}
           </button>
-            <CsvIO rows={rows} schema={systemLossCsvSchema()} onAfterImport={refresh} />
+          )}
+            <CsvIO rows={rows} schema={systemLossCsvSchema()} onAfterImport={refresh} canImport={canWrite} />
           </div>
         </header>
 
@@ -339,13 +343,13 @@ export default function SystemLossPage() {
                     {r.system_loss_percent}%
                   </td>
                   <td className="py-2.5 text-right whitespace-nowrap">
-                    <button
+                    {canWrite && <button
                       onClick={() => startEdit(r)}
                       className="font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] mr-3"
                     >
                       Edit
-                    </button>
-                    {confirmingId === r.id ? (
+                    </button>}
+                    {canDelete && (confirmingId === r.id ? (
                       <>
                         <button
                           onClick={() => handleDelete(r.id)}
@@ -367,7 +371,7 @@ export default function SystemLossPage() {
                       >
                         Delete
                       </button>
-                    )}
+                    ))}
                   </td>
                 </tr>
               ))}

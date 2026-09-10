@@ -15,6 +15,8 @@ interface CsvIOProps<Row, NewRow> {
   rows: Row[];
   schema: CsvSchema<Row, NewRow>;
   onAfterImport?: () => void | Promise<void>;
+  /** When false, Import + Template buttons are hidden (viewer role). Default: true. */
+  canImport?: boolean;
 }
 
 interface RowFailure {
@@ -30,7 +32,7 @@ interface ImportReport {
   failures: RowFailure[];
 }
 
-export default function CsvIO<Row, NewRow>({ rows, schema, onAfterImport }: CsvIOProps<Row, NewRow>) {
+export default function CsvIO<Row, NewRow>({ rows, schema, onAfterImport, canImport = true }: CsvIOProps<Row, NewRow>) {
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -139,7 +141,7 @@ export default function CsvIO<Row, NewRow>({ rows, schema, onAfterImport }: CsvI
         ⤓ Export CSV
       </button>
 
-      {schema.onImport && (
+      {schema.onImport && canImport && (
         <>
           <button
             onClick={() => fileInput.current?.click()}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useOutages } from '../hooks/useOutages';
+import { useRole } from "../hooks/useRole";
 import { createOutage, updateOutage, deleteOutage, OutageRow } from '../services/outagesRepository';
 import CsvIO, { CsvSchema } from "../components/CsvIO";
 import { parseFlexibleDate } from "../lib/dates";
@@ -39,6 +40,7 @@ export default function OutagesPage() {
     avgDuration,
     byCause,
   } = useOutages();
+  const { canWrite, canDelete } = useRole();
 
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -162,13 +164,15 @@ export default function OutagesPage() {
             <h1 className="text-3xl font-semibold tracking-tight">Outages</h1>
           </div>
           <div className="flex flex-col items-end gap-2">
+            {(canWrite || showForm) && (
             <button
             onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
           >
             {showForm ? 'Cancel' : '+ Log Outage'}
           </button>
-            <CsvIO rows={rows} schema={outagesCsvSchema()} onAfterImport={refresh} />
+          )}
+            <CsvIO rows={rows} schema={outagesCsvSchema()} onAfterImport={refresh} canImport={canWrite} />
           </div>
         </header>
 
@@ -365,15 +369,15 @@ export default function OutagesPage() {
                     {r.consumers_affected.toLocaleString()}
                   </td>
                   <td className="py-2.5 text-right whitespace-nowrap">
-                    <button onClick={() => startEdit(r)} className="font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] mr-3">Edit</button>
-                    {confirmingId === r.id ? (
+                    {canWrite && <button onClick={() => startEdit(r)} className="font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] mr-3">Edit</button>}
+                    {canDelete && (confirmingId === r.id ? (
                       <>
                         <button onClick={() => handleDelete(r.id)} className="font-mono text-xs text-[#FF4D6D] mr-2">Confirm</button>
                         <button onClick={() => setConfirmingId(null)} className="font-mono text-xs text-[#9CA3D9]">Cancel</button>
                       </>
                     ) : (
                       <button onClick={() => setConfirmingId(r.id)} className="font-mono text-xs text-[#9CA3D9] hover:text-[#FF4D6D]">Delete</button>
-                    )}
+                    ))}
                   </td>
                 </tr>
               ))}

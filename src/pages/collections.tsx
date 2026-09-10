@@ -12,6 +12,7 @@ import {
   Legend,
 } from "recharts";
 import { useCollections } from "../hooks/useCollections";
+import { useRole } from "../hooks/useRole";
 import {
   createCollection,
   updateCollection,
@@ -46,6 +47,7 @@ const chartTooltipStyle = {
 
 export default function CollectionsPage() {
   const { rows, trend, loading, error, refresh } = useCollections();
+  const { canWrite, canDelete } = useRole();
 
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -167,13 +169,15 @@ export default function CollectionsPage() {
             </h1>
           </div>
           <div className="flex flex-col items-end gap-2">
+            {(canWrite || showForm) && (
             <button
             onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
           >
             {showForm ? "Cancel" : "+ Add Entry"}
           </button>
-            <CsvIO rows={rows} schema={collectionsCsvSchema()} onAfterImport={refresh} />
+          )}
+            <CsvIO rows={rows} schema={collectionsCsvSchema()} onAfterImport={refresh} canImport={canWrite} />
           </div>
         </header>
 
@@ -398,13 +402,13 @@ export default function CollectionsPage() {
                       {r.collection_efficiency_percent}%
                     </td>
                     <td className="py-2.5 text-right whitespace-nowrap">
-                      <button
+                      {canWrite && <button
                         onClick={() => startEdit(r)}
                         className="font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] mr-3"
                       >
                         Edit
-                      </button>
-                      {confirmingId === r.id ? (
+                      </button>}
+                      {canDelete && (confirmingId === r.id ? (
                         <>
                           <button
                             onClick={() => handleDelete(r.id)}
@@ -426,7 +430,7 @@ export default function CollectionsPage() {
                         >
                           Delete
                         </button>
-                      )}
+                      ))}
                     </td>
                   </tr>
                 );
