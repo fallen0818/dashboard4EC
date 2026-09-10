@@ -27,7 +27,23 @@ export function useSystemLoss() {
   }
 
   useEffect(() => {
-    refresh();
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getSystemLossHistory();
+        if (!cancelled) {
+          setRows(data);
+          setError(null);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Aggregate across branches, one point per month, for the trend chart.

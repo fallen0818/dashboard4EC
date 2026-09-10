@@ -1,1 +1,72 @@
 @import "tailwindcss";
+
+/* ------------------------------------------------------------------
+ * Vibrant dark theme — global background & polish
+ * ------------------------------------------------------------------ */
+
+:root {
+  --bg-base:        #08091C;
+  --bg-elevated:    #0F1230;
+  --accent-violet:  #8B5CF6;
+  --accent-mint:    #22F0B0;
+  --accent-azure:   #4DA6FF;
+  --accent-coral:   #FF4D6D;
+  --text-primary:   #F5F0FF;
+}
+
+html, body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Layered radial glows behind the whole app for that "vibrant" depth. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(1200px 800px at 12% -10%, rgba(139, 92, 246, 0.18), transparent 60%),
+    radial-gradient(1000px 700px at 100% 10%, rgba(77, 166, 255, 0.14), transparent 60%),
+    radial-gradient(900px 700px at 80% 100%, rgba(34, 240, 176, 0.10), transparent 60%);
+}
+
+/* Keep app content above the glow layer. */
+#__next {
+  position: relative;
+  z-index: 1;
+}
+
+/* Selection color picks up the violet accent. */
+::selection {
+  background: rgba(139, 92, 246, 0.35);
+  color: var(--text-primary);
+}
+
+/* Custom scrollbar — subtle but on-brand (WebKit only). */
+::-webkit-scrollbar        { width: 10px; height: 10px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #2C3168; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #4A4F9C; }
+
+/* Focus ring: bright violet, subtle glow. */
+:focus-visible {
+  outline: 2px solid var(--accent-violet);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.18);
+}
+
+/* Buttons / cards get a hair-line inner highlight — the "glass" effect. */
+button:not(:disabled) { transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease, border-color 120ms ease; }
+button:not(:disabled):active { transform: translateY(1px); }
+
+/* Slight glow around primary CTAs (any button with a bright text-primary bg). */
+button[class*="bg-[#F5F0FF]"] {
+  box-shadow: 0 4px 24px -8px rgba(245, 240, 255, 0.35);
+}
+button[class*="bg-[#F5F0FF]"]:hover {
+  box-shadow: 0 6px 32px -8px rgba(245, 240, 255, 0.55);
+}

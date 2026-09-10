@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react';
 import { getPowerSupplyHistory, PowerSupplyRow } from '../services/powerSupplyRepository';
 
 export interface PowerSupplyTrendPoint {
+  yyyymm: string;
   period: string;
-  totalKwhPurchased: number;
-  totalKwhSold: number;
+  totalEnergy: number;
   totalCost: number;
-  totalRevenue: number;
-  margin: number;
+  weightedRate: number;   // ₱ / kWh across all suppliers that month
 }
 
 export function usePowerSupply() {
@@ -29,7 +28,23 @@ export function usePowerSupply() {
   }
 
   useEffect(() => {
-    refresh();
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getPowerSupplyHistory();
+        if (!cancelled) {
+          setRows(data);
+          setError(null);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const trend: PowerSupplyTrendPoint[] = Object.values(
@@ -37,22 +52,22 @@ export function usePowerSupply() {
       const key = row.period;
       if (!acc[key]) {
         acc[key] = {
+          yyyymm: row.yyyymm,
           period: key,
-          totalKwhPurchased: 0,
-          totalKwhSold: 0,
+          totalEnergy: 0,
           totalCost: 0,
-          totalRevenue: 0,
-          margin: 0,
+          weightedRate: 0,
         };
       }
-      acc[key].totalKwhPurchased += row.kwh_purchased;
-      acc[key].totalKwhSold += row.kwh_sold;
-      acc[key].totalCost += row.purchased_power_cost;
-      acc[key].totalRevenue += row.sales_revenue;
+      acc[key].totalEnergy += row.energy;
+      acc[key].totalCost += row.power_cost;
       return acc;
-    }, {} as Record<string, PowerSupplyTrendPoint>)
+    }, {} as Record<string, PowerSupplyTrendPoint>),
   )
-    .map((point) => ({ ...point, margin: point.totalRevenue - point.totalCost }))
+    .map((p) => ({
+      ...p,
+      weightedRate: p.totalEnergy > 0 ? Number((p.totalCost / p.totalEnergy).toFixed(4)) : 0,
+    }))
     .sort((a, b) => a.period.localeCompare(b.period));
 
   return { rows, trend, loading, error, refresh };

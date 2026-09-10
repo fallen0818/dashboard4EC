@@ -19,8 +19,8 @@ export default function App({ Component, pageProps }: AppProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0F1214] text-[#E8E6E1] flex items-center justify-center">
-        <p className="font-mono text-sm tracking-wide text-[#8A8F94]">Loading…</p>
+      <div className="min-h-screen bg-[#08091C] text-[#F5F0FF] flex items-center justify-center">
+        <p className="font-mono text-sm tracking-wide text-[#9CA3D9]">Loading…</p>
       </div>
     );
   }

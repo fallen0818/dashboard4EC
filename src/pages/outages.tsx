@@ -5,7 +5,7 @@ import { useOutages } from '../hooks/useOutages';
 import { createOutage, updateOutage, deleteOutage, OutageRow } from '../services/outagesRepository';
 import { supabase } from '../services/supabaseClient';
 
-const CAUSE_COLORS = ['#D9705C', '#D9A15C', '#8A8F94', '#6B9FD9', '#7FB88A'];
+const CAUSE_COLORS = ['#FF4D6D', '#FFB84D', '#9CA3D9', '#4DA6FF', '#22F0B0'];
 
 interface BranchOption {
   id: string;
@@ -34,7 +34,6 @@ export default function OutagesPage() {
     refresh,
     totalOutages,
     totalMinutes,
-    totalConsumersAffected,
     avgDuration,
     byCause,
   } = useOutages();
@@ -122,20 +121,20 @@ export default function OutagesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0F1214] text-[#E8E6E1] flex items-center justify-center">
-        <p className="font-mono text-sm tracking-wide text-[#8A8F94]">Loading outages…</p>
+      <div className="min-h-screen bg-[#08091C] text-[#F5F0FF] flex items-center justify-center">
+        <p className="font-mono text-sm tracking-wide text-[#9CA3D9]">Loading outages…</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0F1214] text-[#E8E6E1] flex items-center justify-center px-6">
+      <div className="min-h-screen bg-[#08091C] text-[#F5F0FF] flex items-center justify-center px-6">
         <div className="max-w-md text-center">
-          <p className="font-mono text-sm text-[#D9705C] mb-4">Couldn't load outages: {error}</p>
+          <p className="font-mono text-sm text-[#FF4D6D] mb-4">Couldn&apos;t load outages: {error}</p>
           <button
             onClick={refresh}
-            className="border border-[#3A3F44] px-4 py-2 text-sm hover:bg-[#1A1D20] transition-colors"
+            className="border border-[#4A4F9C] px-4 py-2 text-sm hover:bg-[#171A38] transition-colors"
           >
             Retry
           </button>
@@ -145,24 +144,24 @@ export default function OutagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F1214] text-[#E8E6E1]">
+    <div className="min-h-screen bg-[#08091C] text-[#F5F0FF]">
       <div className="max-w-4xl mx-auto px-6 py-14">
-        <header className="mb-10 border-b border-[#2A2E32] pb-6 flex justify-between items-start">
+        <header className="mb-10 border-b border-[#2C3168] pb-6 flex justify-between items-start">
           <div>
             <Link
               href="/"
-              className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] hover:text-[#E8E6E1] inline-block mb-4"
+              className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] inline-block mb-4"
             >
               ← Dashboard
             </Link>
-            <p className="font-mono text-xs tracking-[0.2em] text-[#8A8F94] uppercase mb-2">
+            <p className="font-mono text-xs tracking-[0.2em] text-[#9CA3D9] uppercase mb-2">
               Cooperative Report
             </p>
             <h1 className="text-3xl font-semibold tracking-tight">Outages</h1>
           </div>
           <button
             onClick={() => (showForm ? resetForm() : setShowForm(true))}
-            className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] hover:text-[#E8E6E1] border border-[#2A2E32] rounded px-3 py-1.5"
+            className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
           >
             {showForm ? 'Cancel' : '+ Log Outage'}
           </button>
@@ -170,20 +169,20 @@ export default function OutagesPage() {
 
         {/* Summary cards */}
         <div className="grid grid-cols-3 gap-4 mb-10">
-          <div className="border border-[#2A2E32] rounded-lg p-4">
-            <p className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] mb-1">
+          <div className="border border-[#2C3168] rounded-lg p-4">
+            <p className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] mb-1">
               Total Outages
             </p>
             <p className="font-mono text-2xl tabular-nums">{totalOutages}</p>
           </div>
-          <div className="border border-[#2A2E32] rounded-lg p-4">
-            <p className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] mb-1">
+          <div className="border border-[#2C3168] rounded-lg p-4">
+            <p className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] mb-1">
               Total Downtime
             </p>
             <p className="font-mono text-2xl tabular-nums">{formatDuration(totalMinutes)}</p>
           </div>
-          <div className="border border-[#2A2E32] rounded-lg p-4">
-            <p className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] mb-1">
+          <div className="border border-[#2C3168] rounded-lg p-4">
+            <p className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] mb-1">
               Avg. Duration
             </p>
             <p className="font-mono text-2xl tabular-nums">{formatDuration(avgDuration)}</p>
@@ -192,32 +191,32 @@ export default function OutagesPage() {
 
         {/* Cause breakdown chart */}
         {byCause.length > 0 && (
-          <div className="border border-[#2A2E32] rounded-lg p-6 mb-10">
-            <p className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] mb-4">
+          <div className="border border-[#2C3168] rounded-lg p-6 mb-10">
+            <p className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] mb-4">
               Outages by Cause
             </p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={byCause} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2E32" horizontal={false} />
-                <XAxis type="number" stroke="#8A8F94" fontSize={12} fontFamily="monospace" allowDecimals={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#2C3168" horizontal={false} />
+                <XAxis type="number" stroke="#9CA3D9" fontSize={12} fontFamily="monospace" allowDecimals={false} />
                 <YAxis
                   type="category"
                   dataKey="cause"
-                  stroke="#8A8F94"
+                  stroke="#9CA3D9"
                   fontSize={12}
                   fontFamily="monospace"
                   width={140}
                 />
                 <Tooltip
                   contentStyle={{
-                    background: '#1A1D20',
-                    border: '1px solid #2A2E32',
+                    background: '#171A38',
+                    border: '1px solid #2C3168',
                     borderRadius: 6,
                     fontFamily: 'monospace',
                     fontSize: 12,
                   }}
-                  formatter={(value: number, name: string, item: any) => [
-                    `${value} outage${value === 1 ? '' : 's'} · ${item.payload.minutes}m total`,
+                  formatter={(value: unknown, _name: unknown, item: { payload?: { minutes?: number } }) => [
+                    `${Number(value)} outage${Number(value) === 1 ? '' : 's'} · ${item.payload?.minutes ?? 0}m total`,
                     'Count',
                   ]}
                 />
@@ -235,18 +234,18 @@ export default function OutagesPage() {
         {showForm && (
           <form
             onSubmit={handleSubmit}
-            className="mb-10 border border-[#2A2E32] rounded-lg p-5 space-y-4"
+            className="mb-10 border border-[#2C3168] rounded-lg p-5 space-y-4"
           >
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
                   Branch
                 </label>
                 <select
                   required
                   value={branchId}
                   onChange={(e) => setBranchId(e.target.value)}
-                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 >
                   <option value="">Select branch…</option>
                   {branches.map((b) => (
@@ -257,7 +256,7 @@ export default function OutagesPage() {
                 </select>
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
                   Date
                 </label>
                 <input
@@ -265,11 +264,11 @@ export default function OutagesPage() {
                   required
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
                   Duration (minutes)
                 </label>
                 <input
@@ -278,11 +277,11 @@ export default function OutagesPage() {
                   min={0}
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(e.target.value)}
-                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
                   Consumers Affected
                 </label>
                 <input
@@ -290,11 +289,11 @@ export default function OutagesPage() {
                   min={0}
                   value={consumersAffected}
                   onChange={(e) => setConsumersAffected(e.target.value)}
-                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
                   Cause
                 </label>
                 <input
@@ -302,11 +301,11 @@ export default function OutagesPage() {
                   value={cause}
                   onChange={(e) => setCause(e.target.value)}
                   placeholder="e.g. Line maintenance"
-                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
                   Area Affected
                 </label>
                 <input
@@ -314,17 +313,17 @@ export default function OutagesPage() {
                   value={areaAffected}
                   onChange={(e) => setAreaAffected(e.target.value)}
                   placeholder="e.g. Sitio 3"
-                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 />
               </div>
             </div>
 
-            {formError && <p className="font-mono text-xs text-[#D9705C]">{formError}</p>}
+            {formError && <p className="font-mono text-xs text-[#FF4D6D]">{formError}</p>}
 
             <button
               type="submit"
               disabled={submitting}
-              className="bg-[#E8E6E1] text-[#0F1214] font-medium text-sm px-4 py-2 rounded hover:bg-white transition-colors disabled:opacity-50"
+              className="bg-[#F5F0FF] text-[#08091C] font-medium text-sm px-4 py-2 rounded hover:bg-white transition-colors disabled:opacity-50"
             >
               {submitting ? 'Logging…' : 'Log Outage'}
             </button>
@@ -333,11 +332,11 @@ export default function OutagesPage() {
 
         {/* History table */}
         {rows.length === 0 ? (
-          <p className="font-mono text-sm text-[#8A8F94]">No outages logged yet.</p>
+          <p className="font-mono text-sm text-[#9CA3D9]">No outages logged yet.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#2A2E32] font-mono text-xs uppercase tracking-wide text-[#8A8F94]">
+              <tr className="border-b border-[#2C3168] font-mono text-xs uppercase tracking-wide text-[#9CA3D9]">
                 <th className="text-left py-2 font-normal">Date</th>
                 <th className="text-left py-2 font-normal">Branch</th>
                 <th className="text-left py-2 font-normal">Area</th>
@@ -349,11 +348,11 @@ export default function OutagesPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-b border-[#1E2225]">
-                  <td className="py-2.5 font-mono text-[#6B7075]">{formatDate(r.date)}</td>
+                <tr key={r.id} className="border-b border-[#1F2450]">
+                  <td className="py-2.5 font-mono text-[#6C74A8]">{formatDate(r.date)}</td>
                   <td className="py-2.5">{r.branch_name}</td>
                   <td className="py-2.5">{r.area_affected || '—'}</td>
-                  <td className="py-2.5 text-[#8A8F94]">{r.cause || '—'}</td>
+                  <td className="py-2.5 text-[#9CA3D9]">{r.cause || '—'}</td>
                   <td className="py-2.5 text-right font-mono tabular-nums">
                     {formatDuration(r.duration_minutes)}
                   </td>
@@ -361,14 +360,14 @@ export default function OutagesPage() {
                     {r.consumers_affected.toLocaleString()}
                   </td>
                   <td className="py-2.5 text-right whitespace-nowrap">
-                    <button onClick={() => startEdit(r)} className="font-mono text-xs text-[#8A8F94] hover:text-[#E8E6E1] mr-3">Edit</button>
+                    <button onClick={() => startEdit(r)} className="font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] mr-3">Edit</button>
                     {confirmingId === r.id ? (
                       <>
-                        <button onClick={() => handleDelete(r.id)} className="font-mono text-xs text-[#D9705C] mr-2">Confirm</button>
-                        <button onClick={() => setConfirmingId(null)} className="font-mono text-xs text-[#8A8F94]">Cancel</button>
+                        <button onClick={() => handleDelete(r.id)} className="font-mono text-xs text-[#FF4D6D] mr-2">Confirm</button>
+                        <button onClick={() => setConfirmingId(null)} className="font-mono text-xs text-[#9CA3D9]">Cancel</button>
                       </>
                     ) : (
-                      <button onClick={() => setConfirmingId(r.id)} className="font-mono text-xs text-[#8A8F94] hover:text-[#D9705C]">Delete</button>
+                      <button onClick={() => setConfirmingId(r.id)} className="font-mono text-xs text-[#9CA3D9] hover:text-[#FF4D6D]">Delete</button>
                     )}
                   </td>
                 </tr>

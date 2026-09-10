@@ -36,8 +36,8 @@ function formatMonth(period: string): string {
 }
 
 const chartTooltipStyle = {
-  background: "#1A1D20",
-  border: "1px solid #2A2E32",
+  background: "#171A38",
+  border: "1px solid #2C3168",
   borderRadius: 6,
   fontFamily: "monospace",
   fontSize: 12,
@@ -121,8 +121,8 @@ export default function CollectionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0F1214] text-[#E8E6E1] flex items-center justify-center">
-        <p className="font-mono text-sm tracking-wide text-[#8A8F94]">
+      <div className="min-h-screen bg-[#08091C] text-[#F5F0FF] flex items-center justify-center">
+        <p className="font-mono text-sm tracking-wide text-[#9CA3D9]">
           Loading collections data…
         </p>
       </div>
@@ -131,14 +131,14 @@ export default function CollectionsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0F1214] text-[#E8E6E1] flex items-center justify-center px-6">
+      <div className="min-h-screen bg-[#08091C] text-[#F5F0FF] flex items-center justify-center px-6">
         <div className="max-w-md text-center">
-          <p className="font-mono text-sm text-[#D9705C] mb-4">
-            Couldn't load collections: {error}
+          <p className="font-mono text-sm text-[#FF4D6D] mb-4">
+            Couldn&apos;t load collections: {error}
           </p>
           <button
             onClick={refresh}
-            className="border border-[#3A3F44] px-4 py-2 text-sm hover:bg-[#1A1D20] transition-colors"
+            className="border border-[#4A4F9C] px-4 py-2 text-sm hover:bg-[#171A38] transition-colors"
           >
             Retry
           </button>
@@ -148,17 +148,17 @@ export default function CollectionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F1214] text-[#E8E6E1]">
+    <div className="min-h-screen bg-[#08091C] text-[#F5F0FF]">
       <div className="max-w-4xl mx-auto px-6 py-14">
-        <header className="mb-10 border-b border-[#2A2E32] pb-6 flex justify-between items-start">
+        <header className="mb-10 border-b border-[#2C3168] pb-6 flex justify-between items-start">
           <div>
             <Link
               href="/"
-              className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] hover:text-[#E8E6E1] inline-block mb-4"
+              className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] inline-block mb-4"
             >
               ← Dashboard
             </Link>
-            <p className="font-mono text-xs tracking-[0.2em] text-[#8A8F94] uppercase mb-2">
+            <p className="font-mono text-xs tracking-[0.2em] text-[#9CA3D9] uppercase mb-2">
               Cooperative Report
             </p>
             <h1 className="text-3xl font-semibold tracking-tight">
@@ -167,7 +167,7 @@ export default function CollectionsPage() {
           </div>
           <button
             onClick={() => (showForm ? resetForm() : setShowForm(true))}
-            className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] hover:text-[#E8E6E1] border border-[#2A2E32] rounded px-3 py-1.5"
+            className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
           >
             {showForm ? "Cancel" : "+ Add Entry"}
           </button>
@@ -176,18 +176,18 @@ export default function CollectionsPage() {
         {showForm && (
           <form
             onSubmit={handleSubmit}
-            className="mb-10 border border-[#2A2E32] rounded-lg p-5 space-y-4"
+            className="mb-10 border border-[#2C3168] rounded-lg p-5 space-y-4"
           >
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
                   Branch
                 </label>
                 <select
                   required
                   value={branchId}
                   onChange={(e) => setBranchId(e.target.value)}
-                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 >
                   <option value="">Select branch…</option>
                   {branches.map((b) => (
@@ -198,7 +198,7 @@ export default function CollectionsPage() {
                 </select>
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
                   Month
                 </label>
                 <input
@@ -206,11 +206,11 @@ export default function CollectionsPage() {
                   required
                   value={period}
                   onChange={(e) => setPeriod(e.target.value)}
-                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
                   Amount Billed
                 </label>
                 <input
@@ -219,11 +219,11 @@ export default function CollectionsPage() {
                   min={0}
                   value={billed}
                   onChange={(e) => setBilled(e.target.value)}
-                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 />
               </div>
               <div>
-                <label className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] block mb-1">
+                <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
                   Amount Collected
                 </label>
                 <input
@@ -232,17 +232,17 @@ export default function CollectionsPage() {
                   min={0}
                   value={collected}
                   onChange={(e) => setCollected(e.target.value)}
-                  className="w-full bg-[#1A1D20] border border-[#2A2E32] rounded px-3 py-2 text-sm"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 />
               </div>
             </div>
             {formError && (
-              <p className="font-mono text-xs text-[#D9705C]">{formError}</p>
+              <p className="font-mono text-xs text-[#FF4D6D]">{formError}</p>
             )}
             <button
               type="submit"
               disabled={submitting}
-              className="bg-[#E8E6E1] text-[#0F1214] font-medium text-sm px-4 py-2 rounded hover:bg-white transition-colors disabled:opacity-50"
+              className="bg-[#F5F0FF] text-[#08091C] font-medium text-sm px-4 py-2 rounded hover:bg-white transition-colors disabled:opacity-50"
             >
               {submitting
                 ? "Saving…"
@@ -254,8 +254,8 @@ export default function CollectionsPage() {
         )}
 
         {/* Efficiency % trend */}
-        <div className="border border-[#2A2E32] rounded-lg p-6 mb-6">
-          <p className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] mb-4">
+        <div className="border border-[#2C3168] rounded-lg p-6 mb-6">
+          <p className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] mb-4">
             Collection Efficiency % · Target ≥95%
           </p>
           <ResponsiveContainer width="100%" height={240}>
@@ -263,16 +263,16 @@ export default function CollectionsPage() {
               data={trend}
               margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2E32" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#2C3168" />
               <XAxis
                 dataKey="period"
                 tickFormatter={formatMonth}
-                stroke="#8A8F94"
+                stroke="#9CA3D9"
                 fontSize={12}
                 fontFamily="monospace"
               />
               <YAxis
-                stroke="#8A8F94"
+                stroke="#9CA3D9"
                 fontSize={12}
                 fontFamily="monospace"
                 unit="%"
@@ -286,21 +286,21 @@ export default function CollectionsPage() {
                   "Collection Efficiency",
                 ]}
               />
-              <ReferenceLine y={95} stroke="#7FB88A" strokeDasharray="4 4" />
+              <ReferenceLine y={95} stroke="#22F0B0" strokeDasharray="4 4" />
               <Line
                 type="monotone"
                 dataKey="collectionEfficiencyPercent"
-                stroke="#D9A15C"
+                stroke="#FFB84D"
                 strokeWidth={2}
-                dot={{ fill: "#D9A15C", r: 4 }}
+                dot={{ fill: "#FFB84D", r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         {/* Billed vs Collected */}
-        <div className="border border-[#2A2E32] rounded-lg p-6 mb-10">
-          <p className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] mb-4">
+        <div className="border border-[#2C3168] rounded-lg p-6 mb-10">
+          <p className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] mb-4">
             Billed vs. Collected (₱) · All Branches Combined
           </p>
           <ResponsiveContainer width="100%" height={240}>
@@ -308,16 +308,16 @@ export default function CollectionsPage() {
               data={trend}
               margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2E32" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#2C3168" />
               <XAxis
                 dataKey="period"
                 tickFormatter={formatMonth}
-                stroke="#8A8F94"
+                stroke="#9CA3D9"
                 fontSize={12}
                 fontFamily="monospace"
               />
               <YAxis
-                stroke="#8A8F94"
+                stroke="#9CA3D9"
                 fontSize={12}
                 fontFamily="monospace"
                 tickFormatter={(v) => formatCurrency(v)}
@@ -325,7 +325,7 @@ export default function CollectionsPage() {
               <Tooltip
                 contentStyle={chartTooltipStyle}
                 labelFormatter={(label) => formatMonth(String(label))}
-                formatter={(value: any, name: any) => [
+                formatter={(value: unknown, name: unknown) => [
                   formatCurrency(Number(value || 0)),
                   String(name),
                 ]}
@@ -337,17 +337,17 @@ export default function CollectionsPage() {
                 type="monotone"
                 dataKey="totalBilled"
                 name="Billed"
-                stroke="#8A8F94"
+                stroke="#9CA3D9"
                 strokeWidth={2}
-                dot={{ fill: "#8A8F94", r: 4 }}
+                dot={{ fill: "#9CA3D9", r: 4 }}
               />
               <Line
                 type="monotone"
                 dataKey="totalCollected"
                 name="Collected"
-                stroke="#7FB88A"
+                stroke="#22F0B0"
                 strokeWidth={2}
-                dot={{ fill: "#7FB88A", r: 4 }}
+                dot={{ fill: "#22F0B0", r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -355,12 +355,12 @@ export default function CollectionsPage() {
 
         {/* Detail table */}
         <div>
-          <p className="font-mono text-xs uppercase tracking-wide text-[#8A8F94] mb-3">
+          <p className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] mb-3">
             Detail by Branch and Month
           </p>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#2A2E32] font-mono text-xs uppercase tracking-wide text-[#8A8F94]">
+              <tr className="border-b border-[#2C3168] font-mono text-xs uppercase tracking-wide text-[#9CA3D9]">
                 <th className="text-left py-2 font-normal">Month</th>
                 <th className="text-left py-2 font-normal">Branch</th>
                 <th className="text-right py-2 font-normal">Billed</th>
@@ -374,8 +374,8 @@ export default function CollectionsPage() {
               {rows.map((r) => {
                 const receivable = r.amount_billed - r.amount_collected;
                 return (
-                  <tr key={r.id} className="border-b border-[#1E2225]">
-                    <td className="py-2.5 font-mono text-[#6B7075]">
+                  <tr key={r.id} className="border-b border-[#1F2450]">
+                    <td className="py-2.5 font-mono text-[#6C74A8]">
                       {formatMonth(r.period)}
                     </td>
                     <td className="py-2.5">{r.branch_name}</td>
@@ -385,18 +385,18 @@ export default function CollectionsPage() {
                     <td className="py-2.5 text-right font-mono tabular-nums">
                       {formatCurrency(r.amount_collected)}
                     </td>
-                    <td className="py-2.5 text-right font-mono tabular-nums text-[#8A8F94]">
+                    <td className="py-2.5 text-right font-mono tabular-nums text-[#9CA3D9]">
                       {formatCurrency(receivable)}
                     </td>
                     <td
-                      className={`py-2.5 text-right font-mono tabular-nums ${r.collection_efficiency_percent >= 95 ? "text-[#7FB88A]" : "text-[#D9705C]"}`}
+                      className={`py-2.5 text-right font-mono tabular-nums ${r.collection_efficiency_percent >= 95 ? "text-[#22F0B0]" : "text-[#FF4D6D]"}`}
                     >
                       {r.collection_efficiency_percent}%
                     </td>
                     <td className="py-2.5 text-right whitespace-nowrap">
                       <button
                         onClick={() => startEdit(r)}
-                        className="font-mono text-xs text-[#8A8F94] hover:text-[#E8E6E1] mr-3"
+                        className="font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] mr-3"
                       >
                         Edit
                       </button>
@@ -404,13 +404,13 @@ export default function CollectionsPage() {
                         <>
                           <button
                             onClick={() => handleDelete(r.id)}
-                            className="font-mono text-xs text-[#D9705C] mr-2"
+                            className="font-mono text-xs text-[#FF4D6D] mr-2"
                           >
                             Confirm
                           </button>
                           <button
                             onClick={() => setConfirmingId(null)}
-                            className="font-mono text-xs text-[#8A8F94]"
+                            className="font-mono text-xs text-[#9CA3D9]"
                           >
                             Cancel
                           </button>
@@ -418,7 +418,7 @@ export default function CollectionsPage() {
                       ) : (
                         <button
                           onClick={() => setConfirmingId(r.id)}
-                          className="font-mono text-xs text-[#8A8F94] hover:text-[#D9705C]"
+                          className="font-mono text-xs text-[#9CA3D9] hover:text-[#FF4D6D]"
                         >
                           Delete
                         </button>
