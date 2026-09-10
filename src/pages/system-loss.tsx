@@ -19,6 +19,7 @@ import {
   SystemLossRow,
 } from "../services/systemLossRepository";
 import CsvIO, { CsvSchema } from "../components/CsvIO";
+import { parseFlexibleDate } from "../lib/dates";
 import { supabase } from "../services/supabaseClient";
 
 function formatNumber(n: number): string {
@@ -399,9 +400,8 @@ function systemLossCsvSchema(): CsvSchema<SystemLossRow, SystemLossNew> {
     },
     parseRow: (rec) => {
       const branch_id = (rec.branch_id || "").trim();
-      const period = (rec.period || "").trim();
+      const period = parseFlexibleDate(rec.period, "period");
       if (!branch_id) throw new Error("branch_id is required");
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(period)) throw new Error("period must be YYYY-MM-DD");
       const kwh_purchased = Number(String(rec.kwh_purchased || "").replace(/,/g, ""));
       const kwh_sold      = Number(String(rec.kwh_sold      || "").replace(/,/g, ""));
       if (!isFinite(kwh_purchased) || kwh_purchased < 0) throw new Error("kwh_purchased must be a non-negative number");

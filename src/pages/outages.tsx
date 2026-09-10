@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useOutages } from '../hooks/useOutages';
 import { createOutage, updateOutage, deleteOutage, OutageRow } from '../services/outagesRepository';
 import CsvIO, { CsvSchema } from "../components/CsvIO";
+import { parseFlexibleDate } from "../lib/dates";
 import { supabase } from '../services/supabaseClient';
 
 const CAUSE_COLORS = ['#FF4D6D', '#FFB84D', '#9CA3D9', '#4DA6FF', '#22F0B0'];
@@ -405,9 +406,8 @@ function outagesCsvSchema(): CsvSchema<OutageRow, OutageNew> {
     },
     parseRow: (rec) => {
       const branch_id = (rec.branch_id || "").trim();
-      const date = (rec.date || "").trim();
+      const date = parseFlexibleDate(rec.date, "date");
       if (!branch_id) throw new Error("branch_id is required");
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("date must be YYYY-MM-DD");
       const duration_minutes = Number(String(rec.duration_minutes || "0").replace(/,/g, ""));
       const consumers_affected = Number(String(rec.consumers_affected || "0").replace(/,/g, ""));
       if (!isFinite(duration_minutes) || duration_minutes < 0) throw new Error("duration_minutes must be a non-negative number");

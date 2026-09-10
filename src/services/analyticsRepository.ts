@@ -182,3 +182,46 @@ export async function getCollectionAging(from: string, to: string): Promise<Coll
     openNotices: num(r.open_notices),
   }));
 }
+
+// ============================================================
+//  Year-vs-Year compare — one row per (year, month) for two years
+// ============================================================
+export interface YearCompareRow {
+  year: number;
+  month: number;             // 1..12
+  systemLossPercent: number | null;
+  collectionEfficiencyPercent: number | null;
+  genMixRate: number | null;
+  totalConsumers: number;
+  totalKwhPurchased: number;
+  totalKwhSold: number;
+}
+
+interface RawYearCompareRow {
+  year: string | number;
+  month: string | number;
+  system_loss_percent: string | number | null;
+  collection_efficiency_percent: string | number | null;
+  gen_mix_rate: string | number | null;
+  total_consumers: string | number;
+  total_kwh_purchased: string | number;
+  total_kwh_sold: string | number;
+}
+
+export async function getYearCompare(yearA: number, yearB: number): Promise<YearCompareRow[]> {
+  const { data, error } = await supabase.rpc('analytics_year_compare', {
+    p_year_a: yearA,
+    p_year_b: yearB,
+  });
+  if (error) throw new Error(`Failed to load year comparison: ${error.message}`);
+  return ((data as RawYearCompareRow[] | null) ?? []).map((r) => ({
+    year: Number(r.year),
+    month: Number(r.month),
+    systemLossPercent: numOrNull(r.system_loss_percent),
+    collectionEfficiencyPercent: numOrNull(r.collection_efficiency_percent),
+    genMixRate: numOrNull(r.gen_mix_rate),
+    totalConsumers: num(r.total_consumers),
+    totalKwhPurchased: num(r.total_kwh_purchased),
+    totalKwhSold: num(r.total_kwh_sold),
+  }));
+}

@@ -18,10 +18,12 @@ import {
   SupplierMixRow,
   OutageMatrixRow,
   CollectionAgingRow,
+  YearCompareRow,
   getKpiTrend,
   getSupplierMix,
   getOutageMatrix,
   getCollectionAging,
+  getYearCompare,
 } from "../services/analyticsRepository";
 import {
   BarChart,
@@ -63,8 +65,30 @@ export default function AnalyticsPage() {
   const [mix, setMix] = useState<SupplierMixRow[]>([]);
   const [outages, setOutages] = useState<OutageMatrixRow[]>([]);
   const [aging, setAging] = useState<CollectionAgingRow[]>([]);
+  const nowYear = new Date().getFullYear();
+  const [yearA, setYearA] = useState(nowYear - 1);
+  const [yearB, setYearB] = useState(nowYear);
+  const [compareKpi, setCompareKpi] = useState<CompareKpi>("systemLossPercent");
+  const [compareRows, setCompareRows] = useState<YearCompareRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Year compare loads on its own so changing months doesn't touch it
+  // and vice versa.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await getYearCompare(yearA, yearB);
+        if (!cancelled) setCompareRows(rows);
+      } catch {
+        /* non-fatal — the section shows an empty-state on failure */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [yearA, yearB]);
 
   useEffect(() => {
     let cancelled = false;
@@ -395,9 +419,206 @@ export default function AnalyticsPage() {
             </div>
           )}
         </section>
+
+        {/* ---------------- Year vs Year compare ---------------- */}
+        <section className="mb-10">
+          <div className="flex justify-between items-baseline mb-4 flex-wrap gap-3">
+            <div>
+              <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#9CA3D9]">
+                Year-over-Year · Month by Month
+              </p>
+              <p className="font-mono text-xs text-[#6C74A8] mt-1">
+                {yearA} vs {yearB} · pick a KPI to compare
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <YearPicker year={yearA} onChange={setYearA} label="A" />
+              <span className="font-mono text-xs text-[#6C74A8]">vs</span>
+              <YearPicker year={yearB} onChange={setYearB} label="B" />
+              <select
+                value={compareKpi}
+                onChange={(e) => setCompareKpi(e.target.value as CompareKpi)}
+                className="bg-[#171A38] border border-[#2C3168] rounded-md px-3 py-1 font-mono text-xs text-[#F5F0FF] focus:outline-none focus:border-[#4A4F9C]"
+              >
+                {(Object.keys(COMPARE_KPI_META) as CompareKpi[]).map((k) => (
+                  <option key={k} value={k}>{COMPARE_KPI_META[k].label}</option>
+                ))}
+              </select>
+              <CsvIO rows={compareRows} schema={yearCompareCsvSchema(yearA, yearB)} />
+            </div>
+          </div>
+          <YearCompareView
+            rows={compareRows}
+            yearA={yearA}
+            yearB={yearB}
+            kpi={compareKpi}
+          />
+        </section>
       </div>
     </div>
   );
+}
+
+// ==================================================================
+//  Year vs Year compare — helpers, chart, and table
+// ==================================================================
+type CompareKpi =
+  | "systemLossPercent"
+  | "collectionEfficiencyPercent"
+  | "genMixRate"
+  | "totalConsumers"
+  | "totalKwhPurchased"
+  | "totalKwhSold";
+
+const COMPARE_KPI_META: Record<CompareKpi, { label: string; color: string; format: (v: number) => string; higherIsBetter: boolean }> = {
+  systemLossPercent:            { label: "System Loss %",           color: "#FF4D6D", format: (v) => `${v.toFixed(2)}%`, higherIsBetter: false },
+  collectionEfficiencyPercent:  { label: "Collection Efficiency %", color: "#22F0B0", format: (v) => `${v.toFixed(2)}%`, higherIsBetter: true },
+  genMixRate:                   { label: "Gen Mix ₱/kWh",           color: "#8B5CF6", format: (v) => `₱${v.toFixed(4)}`, higherIsBetter: false },
+  totalConsumers:               { label: "Consumers",               color: "#4DA6FF", format: (v) => formatNumber(v),     higherIsBetter: true },
+  totalKwhPurchased:            { label: "kWh Purchased",           color: "#FFB84D", format: (v) => formatNumber(v),     higherIsBetter: true },
+  totalKwhSold:                 { label: "kWh Sold",                color: "#22F0B0", format: (v) => formatNumber(v),     higherIsBetter: true },
+};
+
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function YearPicker({ year, onChange, label }: { year: number; onChange: (y: number) => void; label: string }) {
+  const nowYear = new Date().getFullYear();
+  const options: number[] = [];
+  for (let y = nowYear + 1; y >= nowYear - 5; y--) options.push(y);
+  return (
+    <div className="flex items-center bg-[#171A38] border border-[#2C3168] rounded-md">
+      <span className="font-mono text-[10px] uppercase tracking-wide text-[#6C74A8] pl-2">{label}</span>
+      <select
+        value={year}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="bg-transparent font-mono text-xs px-2 py-1 focus:outline-none"
+        aria-label={`Year ${label}`}
+      >
+        {options.map((y) => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+interface YearComparePoint {
+  monthLabel: string;
+  monthNum: number;
+  a: number | null;
+  b: number | null;
+  delta: number | null;      // b - a
+  pct: number | null;        // (b - a) / a * 100
+}
+
+function YearCompareView({
+  rows,
+  yearA,
+  yearB,
+  kpi,
+}: {
+  rows: YearCompareRow[];
+  yearA: number;
+  yearB: number;
+  kpi: CompareKpi;
+}) {
+  const meta = COMPARE_KPI_META[kpi];
+
+  const points: YearComparePoint[] = MONTH_LABELS.map((label, i) => {
+    const m = i + 1;
+    const a = rows.find((r) => r.year === yearA && r.month === m)?.[kpi] ?? null;
+    const b = rows.find((r) => r.year === yearB && r.month === m)?.[kpi] ?? null;
+    const aNum = typeof a === "number" ? a : null;
+    const bNum = typeof b === "number" ? b : null;
+    const delta = aNum !== null && bNum !== null ? bNum - aNum : null;
+    const pct = aNum !== null && bNum !== null && aNum !== 0 ? ((bNum - aNum) / aNum) * 100 : null;
+    return { monthLabel: label, monthNum: m, a: aNum, b: bNum, delta, pct };
+  });
+
+  const nonEmpty = points.filter((p) => p.a !== null || p.b !== null);
+  if (nonEmpty.length === 0) {
+    return <EmptyState message={`No ${meta.label.toLowerCase()} for ${yearA} or ${yearB} yet.`} />;
+  }
+
+  const chartData = points.map((p) => ({
+    month: p.monthLabel,
+    [`${yearA}`]: p.a,
+    [`${yearB}`]: p.b,
+  }));
+
+  return (
+    <div className="border border-[#2C3168] rounded-lg p-6 bg-[#0F1230]">
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#2C3168" />
+          <XAxis dataKey="month" stroke="#9CA3D9" fontSize={12} fontFamily="monospace" />
+          <YAxis stroke="#9CA3D9" fontSize={12} fontFamily="monospace" />
+          <Tooltip
+            contentStyle={chartTooltipStyle}
+            formatter={(value: unknown, name: unknown) => [
+              value === null || value === undefined ? "—" : meta.format(Number(value)),
+              String(name),
+            ]}
+          />
+          <Legend wrapperStyle={{ fontFamily: "monospace", fontSize: 12 }} />
+          <Bar dataKey={`${yearA}`} fill="#4A4F9C" name={String(yearA)} />
+          <Bar dataKey={`${yearB}`} fill={meta.color} name={String(yearB)} />
+        </BarChart>
+      </ResponsiveContainer>
+
+      {/* Delta table */}
+      <div className="mt-6 overflow-x-auto">
+        <table className="w-full font-mono text-xs">
+          <thead>
+            <tr className="border-b border-[#2C3168] text-[#9CA3D9]">
+              <th className="text-left  py-2 font-normal">Month</th>
+              <th className="text-right py-2 font-normal">{yearA}</th>
+              <th className="text-right py-2 font-normal">{yearB}</th>
+              <th className="text-right py-2 font-normal">Δ</th>
+              <th className="text-right py-2 font-normal">Δ %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {points.map((p) => {
+              const good = p.delta !== null && (meta.higherIsBetter ? p.delta >= 0 : p.delta <= 0);
+              const bad  = p.delta !== null && (meta.higherIsBetter ? p.delta < 0 : p.delta > 0);
+              const deltaColor = good ? "#22F0B0" : bad ? "#FF4D6D" : "#6C74A8";
+              return (
+                <tr key={p.monthNum} className="border-b border-[#1F2450]">
+                  <td className="py-1.5 text-[#F5F0FF]">{p.monthLabel}</td>
+                  <td className="py-1.5 text-right tabular-nums text-[#9CA3D9]">
+                    {p.a === null ? "—" : meta.format(p.a)}
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums text-[#F5F0FF]">
+                    {p.b === null ? "—" : meta.format(p.b)}
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums" style={{ color: deltaColor }}>
+                    {p.delta === null ? "—" : `${p.delta >= 0 ? "+" : ""}${meta.format(p.delta)}`}
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums" style={{ color: deltaColor }}>
+                    {p.pct === null ? "—" : `${p.pct >= 0 ? "+" : ""}${p.pct.toFixed(1)}%`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="font-mono text-[10px] text-[#6C74A8] mt-3">
+        Δ = {yearB} − {yearA}. {meta.higherIsBetter ? "Green when higher (better)." : "Green when lower (better)."}
+      </p>
+    </div>
+  );
+}
+
+function yearCompareCsvSchema(yearA: number, yearB: number): CsvSchema<YearCompareRow, never> {
+  return {
+    filename: `analytics_year_compare_${yearA}_vs_${yearB}.csv`,
+    headers: ["year", "month", "system_loss_percent", "collection_efficiency_percent", "gen_mix_rate", "total_consumers", "total_kwh_purchased", "total_kwh_sold"],
+    serialize: (r) => [r.year, r.month, r.systemLossPercent, r.collectionEfficiencyPercent, r.genMixRate, r.totalConsumers, r.totalKwhPurchased, r.totalKwhSold],
+    templateRow: {},
+    parseRow: () => { throw new Error("analytics import is disabled"); },
+  };
 }
 
 // ==================================================================

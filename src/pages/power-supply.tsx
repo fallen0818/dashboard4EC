@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import Modal from "../components/Modal";
 import CsvIO, { CsvSchema } from "../components/CsvIO";
+import { parseFlexibleDate } from "../lib/dates";
 import { usePowerSupply } from "../hooks/usePowerSupply";
 import {
   createPowerSupply,
@@ -1282,8 +1283,7 @@ function powerSupplyCsvSchema(_refresh: () => Promise<void>): CsvSchema<PowerSup
       rate_php_per_kwh: "(derived; leave blank)",
     },
     parseRow: (rec) => {
-      const period = (rec.period || "").trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(period)) throw new Error("period must be YYYY-MM-DD");
+      const period = parseFlexibleDate(rec.period, "period");
       const supplier_id = (rec.supplier_id || "").trim();
       if (!supplier_id) throw new Error("supplier_id is required");
       const energy = Number(String(rec.energy_kwh || "").replace(/,/g, ""));

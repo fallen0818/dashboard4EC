@@ -18,6 +18,7 @@ import {
   deleteMembership,
 } from "../services/membershipRepository";
 import CsvIO, { CsvSchema } from "../components/CsvIO";
+import { parseFlexibleDate } from "../lib/dates";
 import { supabase } from "../services/supabaseClient";
 
 function formatNumber(n: number): string {
@@ -431,9 +432,8 @@ function membershipCsvSchema(): CsvSchema<MembershipRow, MembershipNew> {
     },
     parseRow: (rec) => {
       const branch_id = (rec.branch_id || "").trim();
-      const period = (rec.period || "").trim();
+      const period = parseFlexibleDate(rec.period, "period");
       if (!branch_id) throw new Error("branch_id is required");
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(period)) throw new Error("period must be YYYY-MM-DD");
       const consumer_count = Number(String(rec.consumer_count || "").replace(/,/g, ""));
       if (!isFinite(consumer_count) || consumer_count < 0) throw new Error("consumer_count must be a non-negative integer");
       return {
