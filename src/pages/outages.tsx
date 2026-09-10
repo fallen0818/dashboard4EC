@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useOutages } from '../hooks/useOutages';
 import { useRole } from "../hooks/useRole";
-import { createOutage, updateOutage, deleteOutage, OutageRow } from '../services/outagesRepository';
+import { createOutage, updateOutage, deleteOutage, OutageRow, isoToLocalInput } from '../services/outagesRepository';
 import CsvIO, { CsvSchema } from "../components/CsvIO";
 import { parseFlexibleDate } from "../lib/dates";
 import { supabase } from '../services/supabaseClient';
@@ -15,7 +15,15 @@ interface BranchOption {
   name: string;
 }
 
-function formatDate(dateStr: string): string {
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function _formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-PH', {
     year: 'numeric',
     month: 'short',
@@ -48,8 +56,8 @@ export default function OutagesPage() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const [branchId, setBranchId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [durationMinutes, setDurationMinutes] = useState('');
+  const [wentOff, setWentOff] = useState(isoToLocalInput(new Date().toISOString()));
+  const [restored, setRestored] = useState(isoToLocalInput(new Date().toISOString()));
   const [cause, setCause] = useState('');
   const [areaAffected, setAreaAffected] = useState('');
   const [consumersAffected, setConsumersAffected] = useState('');
@@ -65,7 +73,7 @@ export default function OutagesPage() {
 
   function resetForm() {
     setBranchId('');
-    setDurationMinutes('');
+    setRestored(isoToLocalInput(new Date().toISOString()));
     setCause('');
     setAreaAffected('');
     setConsumersAffected('');
@@ -76,8 +84,8 @@ export default function OutagesPage() {
   function startEdit(row: OutageRow) {
     setEditingId(row.id);
     setBranchId(row.branch_id);
-    setDate(row.date);
-    setDurationMinutes(String(row.duration_minutes));
+    setWentOff(isoToLocalInput(row.went_off));
+    setRestored(isoToLocalInput(row.restored));
     setCause(row.cause ?? '');
     setAreaAffected(row.area_affected ?? '');
     setConsumersAffected(String(row.consumers_affected));
@@ -91,8 +99,8 @@ export default function OutagesPage() {
     try {
       const entry = {
         branch_id: branchId,
-        date,
-        duration_minutes: Number(durationMinutes) || 0,
+        went_off: new Date(wentOff).toISOString(),
+        restored: new Date(restored).toISOString(),
         cause,
         area_affected: areaAffected,
         consumers_affected: Number(consumersAffected) || 0,
@@ -266,28 +274,38 @@ export default function OutagesPage() {
               </div>
               <div>
                 <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
-                  Date
+                  Time Went-Off
                 </label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
+                  value={wentOff}
+                  onChange={(e) => setWentOff(e.target.value)}
                   className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 />
               </div>
               <div>
                 <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
-                  Duration (minutes)
+                  Time Restored
                 </label>
                 <input
-                  type="number"
+                  type="datetime-local"
                   required
-                  min={0}
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(e.target.value)}
+                  value={restored}
+                  onChange={(e) => setRestored(e.target.value)}
                   className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
                 />
+              </div>
+              <div className="col-span-2">
+                <p className="font-mono text-xs text-[#6C74A8]">
+                  Duration (derived): {(() => {
+                    const s = Date.parse(wentOff);
+                    const e = Date.parse(restored);
+                    if (!isFinite(s) || !isFinite(e) || e < s) return "—";
+                    const mins = Math.round((e - s) / 60000);
+                    return formatDuration(mins);
+                  })()}
+                </p>
               </div>
               <div>
                 <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
@@ -341,34 +359,39 @@ export default function OutagesPage() {
 
         {/* History table */}
         {rows.length === 0 ? (
-          <p className="font-mono text-sm text-[#9CA3D9]">No outages logged yet.</p>
+          <div className="border border-dashed border-[#2C3168] rounded-lg py-10 text-center bg-[#0F1230]">
+            <p className="font-mono text-sm text-[#9CA3D9]">No outages logged yet.</p>
+          </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="border border-[#2C3168] rounded-lg bg-[#0F1230] overflow-x-auto">
+          <table className="w-full text-sm table-auto">
             <thead>
-              <tr className="border-b border-[#2C3168] font-mono text-xs uppercase tracking-wide text-[#9CA3D9]">
-                <th className="text-left py-2 font-normal">Date</th>
-                <th className="text-left py-2 font-normal">Branch</th>
-                <th className="text-left py-2 font-normal">Area</th>
-                <th className="text-left py-2 font-normal">Cause</th>
-                <th className="text-right py-2 font-normal">Duration</th>
-                <th className="text-right py-2 font-normal">Consumers</th>
-                <th className="text-right py-2 font-normal">Actions</th>
+              <tr className="border-b border-[#2C3168] bg-[#0B0D22] font-mono text-[11px] uppercase tracking-[0.15em] text-[#9CA3D9]">
+                <th className="text-left  px-3 py-3 font-normal">Went-Off</th>
+                <th className="text-left  px-3 py-3 font-normal">Restored</th>
+                <th className="text-right px-3 py-3 font-normal">Duration</th>
+                <th className="text-left  px-3 py-3 font-normal">Branch</th>
+                <th className="text-left  px-3 py-3 font-normal">Area</th>
+                <th className="text-left  px-3 py-3 font-normal">Cause</th>
+                <th className="text-right px-3 py-3 font-normal">Consumers</th>
+                <th className="text-right px-3 py-3 font-normal">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-b border-[#1F2450]">
-                  <td className="py-2.5 font-mono text-[#6C74A8]">{formatDate(r.date)}</td>
-                  <td className="py-2.5">{r.branch_name}</td>
-                  <td className="py-2.5">{r.area_affected || '—'}</td>
-                  <td className="py-2.5 text-[#9CA3D9]">{r.cause || '—'}</td>
-                  <td className="py-2.5 text-right font-mono tabular-nums">
+                <tr key={r.id} className="border-b border-[#1F2450] hover:bg-[#141833] transition-colors">
+                  <td className="px-3 py-2.5 font-mono text-[#F5F0FF] whitespace-nowrap">{formatDateTime(r.went_off)}</td>
+                  <td className="px-3 py-2.5 font-mono text-[#F5F0FF] whitespace-nowrap">{formatDateTime(r.restored)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono tabular-nums whitespace-nowrap">
                     {formatDuration(r.duration_minutes)}
                   </td>
-                  <td className="py-2.5 text-right font-mono tabular-nums">
+                  <td className="px-3 py-2.5 whitespace-nowrap">{r.branch_name}</td>
+                  <td className="px-3 py-2.5 text-[#9CA3D9]">{r.area_affected || '—'}</td>
+                  <td className="px-3 py-2.5 text-[#9CA3D9]">{r.cause || '—'}</td>
+                  <td className="px-3 py-2.5 text-right font-mono tabular-nums whitespace-nowrap">
                     {r.consumers_affected.toLocaleString()}
                   </td>
-                  <td className="py-2.5 text-right whitespace-nowrap">
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap w-32">
                     {canWrite && <button onClick={() => startEdit(r)} className="font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] mr-3">Edit</button>}
                     {canDelete && (confirmingId === r.id ? (
                       <>
@@ -383,6 +406,7 @@ export default function OutagesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
@@ -392,34 +416,48 @@ export default function OutagesPage() {
 // ==================================================================
 //  CSV schema — outages
 // ==================================================================
-type OutageNew = { branch_id: string; date: string; duration_minutes: number; cause: string; area_affected: string; consumers_affected: number };
+type OutageNew = { branch_id: string; went_off: string; restored: string; cause: string; area_affected: string; consumers_affected: number };
 
 function outagesCsvSchema(): CsvSchema<OutageRow, OutageNew> {
   return {
     filename: "outages.csv",
-    headers: ["branch_id", "date", "branch_name", "duration_minutes", "cause", "area_affected", "consumers_affected"],
-    serialize: (r) => [r.branch_id, r.date, r.branch_name, r.duration_minutes, r.cause ?? "", r.area_affected ?? "", r.consumers_affected],
+    headers: ["branch_id", "branch_name", "went_off", "restored", "duration_minutes", "cause", "area_affected", "consumers_affected"],
+    serialize: (r) => [r.branch_id, r.branch_name, r.went_off, r.restored ?? "", r.duration_minutes, r.cause ?? "", r.area_affected ?? "", r.consumers_affected],
     templateRow: {
       branch_id: "<uuid from branches>",
-      date: "2026-07-15",
       branch_name: "(export-only)",
-      duration_minutes: "120",
+      went_off: "2026-07-15T14:30",
+      restored: "2026-07-15T16:30",
+      duration_minutes: "(derived; leave blank)",
       cause: "Typhoon",
       area_affected: "Feeder 3",
       consumers_affected: "1500",
     },
     parseRow: (rec) => {
       const branch_id = (rec.branch_id || "").trim();
-      const date = parseFlexibleDate(rec.date, "date");
+      // Accept `went_off`/`restored` (preferred), fall back to legacy `date`+`duration_minutes`.
+      let wentOff = String(rec.went_off ?? "").trim();
+      let restored = String(rec.restored ?? "").trim();
+      if (!wentOff) {
+        // Legacy path: derive from date + duration_minutes.
+        const legacyDate = parseFlexibleDate(rec.date, "went_off/date");
+        wentOff = `${legacyDate}T00:00:00`;
+        const dm = Number(String(rec.duration_minutes || "0").replace(/,/g, ""));
+        if (!isFinite(dm) || dm < 0) throw new Error("duration_minutes must be a non-negative number");
+        restored = new Date(Date.parse(wentOff) + dm * 60000).toISOString();
+      }
+      const wentMs = Date.parse(wentOff);
+      const resMs = Date.parse(restored);
+      if (!isFinite(wentMs)) throw new Error(`went_off "${rec.went_off ?? ""}" is not a valid date/time`);
+      if (!isFinite(resMs))  throw new Error(`restored "${rec.restored ?? ""}" is not a valid date/time`);
+      if (resMs < wentMs)    throw new Error("restored is earlier than went_off");
       if (!branch_id) throw new Error("branch_id is required");
-      const duration_minutes = Number(String(rec.duration_minutes || "0").replace(/,/g, ""));
       const consumers_affected = Number(String(rec.consumers_affected || "0").replace(/,/g, ""));
-      if (!isFinite(duration_minutes) || duration_minutes < 0) throw new Error("duration_minutes must be a non-negative number");
       if (!isFinite(consumers_affected) || consumers_affected < 0) throw new Error("consumers_affected must be a non-negative integer");
       return {
         branch_id,
-        date,
-        duration_minutes: Math.round(duration_minutes),
+        went_off: new Date(wentMs).toISOString(),
+        restored: new Date(resMs).toISOString(),
         cause: (rec.cause || "").trim(),
         area_affected: (rec.area_affected || "").trim(),
         consumers_affected: Math.round(consumers_affected),

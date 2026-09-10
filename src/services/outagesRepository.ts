@@ -4,8 +4,10 @@ export interface OutageRow {
   id: string;
   branch_id: string;
   branch_name: string;
-  date: string;
-  duration_minutes: number;
+  went_off: string;                 // ISO datetime, e.g. "2026-07-15T14:30:00Z"
+  restored: string | null;          // ISO datetime or null if unresolved
+  date: string;                     // YYYY-MM-DD of went_off (kept for compat)
+  duration_minutes: number;         // derived from went_off / restored
   cause: string | null;
   area_affected: string | null;
   consumers_affected: number;
@@ -37,6 +39,8 @@ export async function getOutages(): Promise<OutageRow[]> {
     id: r.id,
     branch_id: r.branch_id,
     branch_name: r.branches?.name ?? 'Unknown',
+    went_off: r.start_time,
+    restored: r.end_time,
     date: r.start_time.slice(0, 10),
     duration_minutes: minutesBetween(r.start_time, r.end_time),
     cause: r.cause,
@@ -47,20 +51,23 @@ export async function getOutages(): Promise<OutageRow[]> {
 
 export interface NewOutage {
   branch_id: string;
-  date: string;
-  duration_minutes: number;
+  went_off: string;                 // ISO datetime
+  restored: string;                 // ISO datetime (required for now)
   cause: string;
   area_affected: string;
   consumers_affected: number;
 }
 
 function toDbRow(entry: NewOutage) {
-  const start = new Date(`${entry.date}T00:00:00Z`);
-  const end = new Date(start.getTime() + entry.duration_minutes * 60_000);
+  const startMs = Date.parse(entry.went_off);
+  const endMs = Date.parse(entry.restored);
+  if (!isFinite(startMs)) throw new Error('Time went-off is not a valid date/time');
+  if (!isFinite(endMs))   throw new Error('Time restored is not a valid date/time');
+  if (endMs < startMs)    throw new Error('Time restored is earlier than time went-off');
   return {
     branch_id: entry.branch_id,
-    start_time: start.toISOString(),
-    end_time: end.toISOString(),
+    start_time: new Date(startMs).toISOString(),
+    end_time:   new Date(endMs).toISOString(),
     cause: entry.cause,
     feeder_name: entry.area_affected,
     affected_consumers: entry.consumers_affected,
@@ -83,7 +90,15 @@ export async function deleteOutage(id: string): Promise<void> {
   if (error) throw new Error(`Failed to delete outage: ${error.message}`);
 }
 
-function minutesBetween(startISO: string, endISO: string | null): number {
+export function minutesBetween(startISO: string, endISO: string | null): number {
   if (!endISO) return 0;
   return Math.max(0, Math.round((Date.parse(endISO) - Date.parse(startISO)) / 60_000));
+}
+
+/** Converts an ISO timestamp to the value expected by <input type="datetime-local">. */
+export function isoToLocalInput(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
