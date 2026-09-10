@@ -11,8 +11,9 @@ export interface DashboardSummary {
   totalConsumers: number;
   outageCount: number;
   totalOutageMinutes: number;
-  latestWesmPrice: number | null;
-  wesmGrid: string | null;
+  genMixRate: number | null;
+  genMixTotalEnergy: number;
+  genMixTotalCost: number;
   branchCount: number;
 }
 
@@ -39,8 +40,9 @@ interface RpcRow {
   total_consumers: string | number;
   outage_count: string | number;
   total_outage_minutes: string | number;
-  latest_wesm_price: string | number | null;
-  wesm_grid: string | null;
+  gen_mix_rate: string | number | null;
+  gen_mix_total_energy: string | number;
+  gen_mix_total_cost: string | number;
   branch_count: string | number;
 }
 
@@ -59,8 +61,9 @@ function mapRow(row: RpcRow, fallbackPeriod: string): DashboardSummary {
     totalConsumers: n(row.total_consumers),
     outageCount: n(row.outage_count),
     totalOutageMinutes: n(row.total_outage_minutes),
-    latestWesmPrice: row.latest_wesm_price === null ? null : n(row.latest_wesm_price),
-    wesmGrid: row.wesm_grid ?? null,
+    genMixRate: row.gen_mix_rate === null || row.gen_mix_rate === undefined ? null : n(row.gen_mix_rate),
+    genMixTotalEnergy: n(row.gen_mix_total_energy),
+    genMixTotalCost: n(row.gen_mix_total_cost),
     branchCount: n(row.branch_count),
   };
 }

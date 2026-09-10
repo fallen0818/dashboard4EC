@@ -160,15 +160,17 @@ export default function DashboardOverviewPage() {
             <p className="font-mono text-xs text-[#6C74A8] mt-1">this period</p>
           </div>
 
-          {/* WESM Price */}
+          {/* Gen Mix — weighted-average power cost / energy across all suppliers */}
           <div className="border border-[#2C3168] rounded-lg p-4">
             <p className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] mb-1">
-              WESM Price {summary.wesmGrid ? `(${summary.wesmGrid})` : ''}
+              Gen Mix
             </p>
             <p className="font-mono text-2xl tabular-nums">
-              {summary.latestWesmPrice !== null ? `₱${summary.latestWesmPrice.toFixed(2)}` : '—'}
+              {summary.genMixRate !== null ? `₱${summary.genMixRate.toFixed(4)}` : '—'}
             </p>
-            <p className="font-mono text-xs text-[#6C74A8] mt-1">per kWh</p>
+            <p className="font-mono text-xs text-[#6C74A8] mt-1">
+              per kWh · {formatNumber(summary.genMixTotalEnergy)} kWh
+            </p>
           </div>
 
           {/* Collection Efficiency */}
