@@ -18,6 +18,7 @@ import {
   deleteCollection,
   CollectionRow,
 } from "../services/collectionsRepository";
+import CsvIO, { CsvSchema } from "../components/CsvIO";
 import { supabase } from "../services/supabaseClient";
 
 function formatCurrency(n: number): string {
@@ -165,12 +166,15 @@ export default function CollectionsPage() {
               Collection Efficiency
             </h1>
           </div>
-          <button
+          <div className="flex flex-col items-end gap-2">
+            <button
             onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
           >
             {showForm ? "Cancel" : "+ Add Entry"}
           </button>
+            <CsvIO rows={rows} schema={collectionsCsvSchema()} onAfterImport={refresh} />
+          </div>
         </header>
 
         {showForm && (
@@ -433,4 +437,21 @@ export default function CollectionsPage() {
       </div>
     </div>
   );
+}
+
+// ==================================================================
+//  CSV schema — collections (export only; collections are derived
+//  from bills + payments in the live schema).
+// ==================================================================
+type CollectionsNew = never;
+
+function collectionsCsvSchema(): CsvSchema<CollectionRow, CollectionsNew> {
+  return {
+    filename: "collections.csv",
+    headers: ["branch_id", "period", "branch_name", "amount_billed", "amount_collected", "collection_efficiency_percent"],
+    serialize: (r) => [r.branch_id, r.period, r.branch_name, r.amount_billed, r.amount_collected, r.collection_efficiency_percent],
+    templateRow: {}, // unused (no onImport)
+    parseRow: () => { throw new Error("collections import is disabled"); },
+    // No onImport — the CsvIO toolbar hides the Import/Template buttons.
+  };
 }

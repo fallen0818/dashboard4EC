@@ -13,9 +13,11 @@ import {
 import { useMembership } from "../hooks/useMembership";
 import {
   createMembership,
+  MembershipRow,
   updateMembership,
   deleteMembership,
 } from "../services/membershipRepository";
+import CsvIO, { CsvSchema } from "../components/CsvIO";
 import { supabase } from "../services/supabaseClient";
 
 function formatNumber(n: number): string {
@@ -179,12 +181,15 @@ export default function MembershipPage() {
               Membership
             </h1>
           </div>
-          <button
+          <div className="flex flex-col items-end gap-2">
+            <button
             onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
           >
             {showForm ? "Cancel" : "+ Add Entry"}
           </button>
+            <CsvIO rows={rows} schema={membershipCsvSchema()} onAfterImport={refresh} />
+          </div>
         </header>
 
         {showForm && (
@@ -405,4 +410,39 @@ export default function MembershipPage() {
       </div>
     </div>
   );
+}
+
+// ==================================================================
+//  CSV schema — membership
+// ==================================================================
+type MembershipNew = { branch_id: string; period: string; connection_type: string; consumer_count: number };
+
+function membershipCsvSchema(): CsvSchema<MembershipRow, MembershipNew> {
+  return {
+    filename: "membership.csv",
+    headers: ["branch_id", "period", "branch_name", "connection_type", "consumer_count"],
+    serialize: (r) => [r.branch_id, r.period, r.branch_name, r.connection_type, r.consumer_count],
+    templateRow: {
+      branch_id: "<uuid from branches>",
+      period: "2026-07-01",
+      branch_name: "(export-only)",
+      connection_type: "all",
+      consumer_count: "42310",
+    },
+    parseRow: (rec) => {
+      const branch_id = (rec.branch_id || "").trim();
+      const period = (rec.period || "").trim();
+      if (!branch_id) throw new Error("branch_id is required");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(period)) throw new Error("period must be YYYY-MM-DD");
+      const consumer_count = Number(String(rec.consumer_count || "").replace(/,/g, ""));
+      if (!isFinite(consumer_count) || consumer_count < 0) throw new Error("consumer_count must be a non-negative integer");
+      return {
+        branch_id,
+        period,
+        connection_type: (rec.connection_type || "all").trim() || "all",
+        consumer_count: Math.round(consumer_count),
+      };
+    },
+    onImport: async (payload) => { await createMembership(payload); },
+  };
 }

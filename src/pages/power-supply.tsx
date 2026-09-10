@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import Modal from "../components/Modal";
+import CsvIO, { CsvSchema } from "../components/CsvIO";
 import { usePowerSupply } from "../hooks/usePowerSupply";
 import {
   createPowerSupply,
@@ -184,6 +186,13 @@ export default function PowerSupplyPage() {
 
   const trend = useMemo(() => buildTrend(filteredRows), [filteredRows]);
 
+  const availableYears = useMemo(() => {
+    const set = new Set<number>();
+    for (const r of rows) set.add(Number(r.yyyymm.slice(0, 4)));
+    if (set.size === 0) set.add(new Date().getFullYear());
+    return Array.from(set).sort((a, b) => b - a); // newest first
+  }, [rows]);
+
   const totals = useMemo(() => {
     const energyTotal = filteredRows.reduce((s, r) => s + r.energy, 0);
     const costTotal = filteredRows.reduce((s, r) => s + r.power_cost, 0);
@@ -249,23 +258,26 @@ export default function PowerSupplyPage() {
             <p className="font-mono text-xs tracking-[0.2em] text-[#9CA3D9] uppercase mb-2">Cooperative Report</p>
             <h1 className="text-3xl font-semibold tracking-tight">Power Supply</h1>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowSuppliers((v) => !v)}
-              className={`font-mono text-xs uppercase tracking-wide border rounded px-3 py-1.5 transition-colors ${
-                showSuppliers
-                  ? "bg-[#F5F0FF] text-[#08091C] border-[#F5F0FF]"
-                  : "text-[#9CA3D9] hover:text-[#F5F0FF] border-[#2C3168]"
-              }`}
-            >
-              Manage Suppliers
-            </button>
-            <button
-              onClick={() => (showForm ? resetForm() : setShowForm(true))}
-              className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
-            >
-              {showForm ? "Cancel" : "+ Add Entry"}
-            </button>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSuppliers((v) => !v)}
+                className={`font-mono text-xs uppercase tracking-wide border rounded px-3 py-1.5 transition-colors ${
+                  showSuppliers
+                    ? "bg-[#F5F0FF] text-[#08091C] border-[#F5F0FF]"
+                    : "text-[#9CA3D9] hover:text-[#F5F0FF] border-[#2C3168]"
+                }`}
+              >
+                Manage Suppliers
+              </button>
+              <button
+                onClick={() => (showForm ? resetForm() : setShowForm(true))}
+                className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
+              >
+                {showForm ? "Cancel" : "+ Add Entry"}
+              </button>
+            </div>
+            <CsvIO rows={rows} schema={powerSupplyCsvSchema(refresh)} onAfterImport={refresh} />
           </div>
         </header>
 
@@ -283,6 +295,7 @@ export default function PowerSupplyPage() {
           suppliers={suppliers}
           totals={totals}
           filtersActive={filtersActive}
+          availableYears={availableYears}
         />
 
         <Modal
@@ -463,9 +476,17 @@ interface FilterBarProps {
   suppliers: SupplierOption[];
   totals: { energy: number; cost: number; rate: number; count: number };
   filtersActive: boolean;
+  availableYears: number[];
 }
 
-function FilterBar({ filters, setFilters, suppliers, totals, filtersActive }: FilterBarProps) {
+function FilterBar({
+  filters,
+  setFilters,
+  suppliers,
+  totals,
+  filtersActive,
+  availableYears,
+}: FilterBarProps) {
   const quickRanges: Array<{ id: QuickRange; label: string }> = [
     { id: "3m",  label: "3M" },
     { id: "6m",  label: "6M" },
@@ -556,27 +577,26 @@ function FilterBar({ filters, setFilters, suppliers, totals, filtersActive }: Fi
           </span>
         </div>
 
-        {/* Row 3: supplier chips */}
+        {/* Row 2.5: Year + quarterly quick-select */}
+        <QuarterRow
+          years={availableYears}
+          filters={filters}
+          setFilters={setFilters}
+        />
+
+        {/* Row 3: supplier chips — scales gracefully past a handful of suppliers */}
         {suppliers.length > 0 && (
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] mr-1">Suppliers</span>
-            {suppliers.map((s) => {
-              const active = filters.supplierIds.has(s.id);
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => toggleSupplier(s.id)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-mono border transition-colors ${
-                    active
-                      ? "bg-[#F5F0FF] text-[#08091C] border-[#F5F0FF]"
-                      : "bg-transparent text-[#9CA3D9] border-[#2C3168] hover:border-[#4A4F9C] hover:text-[#F5F0FF]"
-                  }`}
-                >
-                  {s.name}
-                </button>
-              );
-            })}
-          </div>
+          <SupplierChipRow
+            suppliers={suppliers}
+            selected={filters.supplierIds}
+            onToggle={toggleSupplier}
+            onSelectAll={() =>
+              setFilters((f) => ({ ...f, supplierIds: new Set(suppliers.map((s) => s.id)) }))
+            }
+            onClear={() =>
+              setFilters((f) => ({ ...f, supplierIds: new Set() }))
+            }
+          />
         )}
       </div>
     </section>
@@ -1002,63 +1022,276 @@ function SupplierManager({ onChanged, onClose }: SupplierManagerProps) {
   );
 }
 
+//  Supplier chip row — handles small AND large supplier lists gracefully.
+//  * ≤ 6 suppliers: show them all inline (same as before).
+//  * > 6 suppliers: show a search box, and cap the visible chips with
+//    a "+N more" toggle. Selected chips always appear first so the
+//    active filter stays visible when the list is collapsed.
 // ==================================================================
-//  Modal (used for Add/Edit Entry and Add/Edit Supplier popups)
-// ==================================================================
-interface ModalProps {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
+interface SupplierChipRowProps {
+  suppliers: SupplierOption[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  onSelectAll: () => void;
+  onClear: () => void;
 }
 
-function Modal({ open, onClose, title, children }: ModalProps) {
-  // Close on Escape.
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    // Lock body scroll while the modal is open.
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [open, onClose]);
+function SupplierChipRow({ suppliers, selected, onToggle, onSelectAll, onClear }: SupplierChipRowProps) {
+  const INLINE_LIMIT = 6;
+  const isLarge = suppliers.length > INLINE_LIMIT;
 
-  if (!open) return null;
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState(false);
+
+  // Selected suppliers first, then the rest — so the active filter is
+  // always visible even when the list is collapsed or filtered.
+  const ordered = useMemo(() => {
+    const sel: SupplierOption[] = [];
+    const rest: SupplierOption[] = [];
+    for (const s of suppliers) (selected.has(s.id) ? sel : rest).push(s);
+    return [...sel, ...rest];
+  }, [suppliers, selected]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return ordered;
+    return ordered.filter((s) => s.name.toLowerCase().includes(q));
+  }, [ordered, query]);
+
+  const visible = isLarge && !expanded ? filtered.slice(0, INLINE_LIMIT) : filtered;
+  const hiddenCount = filtered.length - visible.length;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-    >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      {/* Panel */}
-      <div className="relative w-full max-w-lg bg-[#0F1230] border border-[#2C3168] rounded-lg shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[#2C3168]">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#9CA3D9]">
-            {title}
-          </p>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-3 items-center">
+        <span className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] mr-1">
+          Suppliers · {selected.size}/{suppliers.length}
+        </span>
+
+        <div className="flex gap-2">
           <button
-            onClick={onClose}
-            className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF]"
-            aria-label="Close"
+            onClick={onSelectAll}
+            className="font-mono text-[10px] uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-2 py-0.5"
           >
-            ✕
+            All
+          </button>
+          <button
+            onClick={onClear}
+            className="font-mono text-[10px] uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-2 py-0.5"
+          >
+            None
           </button>
         </div>
-        <div className="p-5 max-h-[75vh] overflow-y-auto">{children}</div>
+
+        {isLarge && (
+          <div className="relative ml-auto w-56">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6C74A8] text-xs">⌕</span>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter suppliers…"
+              className="w-full bg-[#171A38] border border-[#2C3168] rounded-md pl-7 pr-2 py-1 text-xs font-mono placeholder-[#454A80] focus:outline-none focus:border-[#4A4F9C]"
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-center">
+        {visible.length === 0 ? (
+          <span className="font-mono text-xs text-[#6C74A8]">No suppliers match.</span>
+        ) : (
+          visible.map((s) => {
+            const active = selected.has(s.id);
+            return (
+              <button
+                key={s.id}
+                onClick={() => onToggle(s.id)}
+                title={s.name}
+                className={`max-w-[220px] truncate px-2.5 py-1 rounded-full text-xs font-mono border transition-colors ${
+                  active
+                    ? "bg-[#F5F0FF] text-[#08091C] border-[#F5F0FF]"
+                    : "bg-transparent text-[#9CA3D9] border-[#2C3168] hover:border-[#4A4F9C] hover:text-[#F5F0FF]"
+                }`}
+              >
+                {s.name}
+              </button>
+            );
+          })
+        )}
+
+        {isLarge && hiddenCount > 0 && (
+          <button
+            onClick={() => setExpanded(true)}
+            className="px-2.5 py-1 rounded-full text-xs font-mono border border-dashed border-[#4A4F9C] text-[#9CA3D9] hover:text-[#F5F0FF] hover:border-[#F5F0FF] transition-colors"
+          >
+            +{hiddenCount} more
+          </button>
+        )}
+        {isLarge && expanded && (
+          <button
+            onClick={() => setExpanded(false)}
+            className="px-2.5 py-1 rounded-full text-xs font-mono border border-dashed border-[#4A4F9C] text-[#9CA3D9] hover:text-[#F5F0FF] hover:border-[#F5F0FF] transition-colors"
+          >
+            Show less
+          </button>
+        )}
       </div>
     </div>
   );
+}
+
+// ==================================================================
+//  Quarter row — Year picker + Q1..Q4 chips
+//  Clicking a quarter chip sets monthFrom / monthTo to that quarter's
+//  YYYYMM window (and resets the quick-range to "all", since explicit
+//  ranges take precedence).
+// ==================================================================
+interface QuarterRowProps {
+  years: number[];
+  filters: Filters;
+  setFilters: React.Dispatch<React.SetStateAction<Filters>>;
+}
+
+const QUARTERS: Array<{ id: 1 | 2 | 3 | 4; label: string; start: string; end: string }> = [
+  { id: 1, label: "Q1", start: "01", end: "03" },
+  { id: 2, label: "Q2", start: "04", end: "06" },
+  { id: 3, label: "Q3", start: "07", end: "09" },
+  { id: 4, label: "Q4", start: "10", end: "12" },
+];
+
+function QuarterRow({ years, filters, setFilters }: QuarterRowProps) {
+  // Default the year picker to the most recent year (years[] is newest first).
+  const defaultYear = years[0] ?? new Date().getFullYear();
+  const [year, setYear] = useState<number>(defaultYear);
+
+  // Which quarter is currently reflected by monthFrom/monthTo?
+  const activeQuarter: 1 | 2 | 3 | 4 | null = useMemo(() => {
+    const from = filters.monthFrom;
+    const to = filters.monthTo;
+    if (!from || !to || from.length !== 6 || to.length !== 6) return null;
+    if (from.slice(0, 4) !== to.slice(0, 4)) return null;
+    for (const q of QUARTERS) {
+      if (from.slice(0, 4) === String(year) && from.slice(4) === q.start && to.slice(4) === q.end) {
+        return q.id;
+      }
+    }
+    return null;
+  }, [filters.monthFrom, filters.monthTo, year]);
+
+  function applyQuarter(q: (typeof QUARTERS)[number]) {
+    if (activeQuarter === q.id) {
+      // Click again to clear this quarter selection.
+      setFilters((f) => ({ ...f, monthFrom: "", monthTo: "", quick: "all" }));
+      return;
+    }
+    const from = `${year}${q.start}`;
+    const to = `${year}${q.end}`;
+    setFilters((f) => ({ ...f, monthFrom: from, monthTo: to, quick: "all" }));
+  }
+
+  const yearIdx = years.indexOf(year);
+  const canPrev = yearIdx >= 0 && yearIdx < years.length - 1;
+  const canNext = yearIdx > 0;
+
+  return (
+    <div className="flex flex-wrap gap-3 items-center">
+      <span className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9]">Quarter</span>
+
+      <div className="flex items-center bg-[#171A38] border border-[#2C3168] rounded-md">
+        <button
+          onClick={() => canPrev && setYear(years[yearIdx + 1])}
+          disabled={!canPrev}
+          className="px-2 py-1 font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Previous year"
+        >
+          ‹
+        </button>
+        <select
+          value={year}
+          onChange={(e) => setYear(Number(e.target.value))}
+          className="bg-transparent font-mono text-xs px-2 py-1 focus:outline-none"
+          aria-label="Year"
+        >
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => canNext && setYear(years[yearIdx - 1])}
+          disabled={!canNext}
+          className="px-2 py-1 font-mono text-xs text-[#9CA3D9] hover:text-[#F5F0FF] disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Next year"
+        >
+          ›
+        </button>
+      </div>
+
+      <div className="flex bg-[#171A38] border border-[#2C3168] rounded-md p-0.5">
+        {QUARTERS.map((q) => {
+          const active = activeQuarter === q.id;
+          return (
+            <button
+              key={q.id}
+              onClick={() => applyQuarter(q)}
+              title={`${q.label} ${year} — ${q.start}/${year} → ${q.end}/${year}`}
+              className={`px-3 py-1 font-mono text-xs uppercase tracking-wide rounded transition-colors ${
+                active
+                  ? "bg-[#F5F0FF] text-[#08091C]"
+                  : "text-[#9CA3D9] hover:text-[#F5F0FF]"
+              }`}
+            >
+              {q.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {activeQuarter !== null && (
+        <span className="font-mono text-xs text-[#6C74A8]">
+          Q{activeQuarter} {year} · {`${year}${QUARTERS[activeQuarter - 1].start}`} → {`${year}${QUARTERS[activeQuarter - 1].end}`}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ==================================================================
+//  CSV schema — power_supply
+// ==================================================================
+type PowerSupplyNew = {
+  period: string;
+  supplier_id: string;
+  energy: number;
+  power_cost: number;
+};
+
+function powerSupplyCsvSchema(_refresh: () => Promise<void>): CsvSchema<PowerSupplyRow, PowerSupplyNew> {
+  return {
+    filename: "power_supply.csv",
+    headers: ["period", "supplier_id", "supplier_name", "energy_kwh", "power_cost_php", "rate_php_per_kwh"],
+    serialize: (r) => [r.period, r.supplier_id, r.supplier_name, r.energy, r.power_cost, r.rate],
+    templateRow: {
+      period: "2026-07-01",
+      supplier_id: "<uuid from power_suppliers>",
+      supplier_name: "(ignored on import)",
+      energy_kwh: "1000000",
+      power_cost_php: "5850000",
+      rate_php_per_kwh: "(derived; leave blank)",
+    },
+    parseRow: (rec) => {
+      const period = (rec.period || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(period)) throw new Error("period must be YYYY-MM-DD");
+      const supplier_id = (rec.supplier_id || "").trim();
+      if (!supplier_id) throw new Error("supplier_id is required");
+      const energy = Number(String(rec.energy_kwh || "").replace(/,/g, ""));
+      const power_cost = Number(String(rec.power_cost_php || "").replace(/,/g, ""));
+      if (!isFinite(energy) || energy < 0) throw new Error("energy_kwh must be a non-negative number");
+      if (!isFinite(power_cost) || power_cost < 0) throw new Error("power_cost_php must be a non-negative number");
+      return { period, supplier_id, energy, power_cost };
+    },
+    onImport: async (payload) => { await createPowerSupply(payload); },
+  };
 }

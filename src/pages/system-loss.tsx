@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import Modal from "../components/Modal";
 import { useSystemLoss } from "../hooks/useSystemLoss";
 import {
   createSystemLoss,
@@ -17,6 +18,7 @@ import {
   deleteSystemLoss,
   SystemLossRow,
 } from "../services/systemLossRepository";
+import CsvIO, { CsvSchema } from "../components/CsvIO";
 import { supabase } from "../services/supabaseClient";
 
 function formatNumber(n: number): string {
@@ -28,6 +30,14 @@ function formatMonth(period: string): string {
     year: "numeric",
     month: "short",
   });
+}
+
+
+// Formats a raw digit string as "1,234,567" for display in numeric inputs.
+function formatWithCommas(v: string | number): string {
+  const digits = String(v).replace(/\D/g, "");
+  if (!digits) return "";
+  return Number(digits).toLocaleString("en-US");
 }
 
 export default function SystemLossPage() {
@@ -65,8 +75,8 @@ export default function SystemLossPage() {
     setEditingId(row.id);
     setBranchId(row.branch_id);
     setPeriod(row.period);
-    setKwhPurchased(String(row.kwh_purchased));
-    setKwhSold(String(row.kwh_sold));
+    setKwhPurchased(formatWithCommas(row.kwh_purchased));
+    setKwhSold(formatWithCommas(row.kwh_sold));
     setShowForm(true);
   }
 
@@ -78,8 +88,8 @@ export default function SystemLossPage() {
       const entry = {
         branch_id: branchId,
         period,
-        kwh_purchased: Number(kwhPurchased) || 0,
-        kwh_sold: Number(kwhSold) || 0,
+        kwh_purchased: Number(String(kwhPurchased).replace(/,/g, "")) || 0,
+        kwh_sold: Number(String(kwhSold).replace(/,/g, "")) || 0,
       };
       if (editingId) {
         await updateSystemLoss(editingId, entry);
@@ -152,19 +162,23 @@ export default function SystemLossPage() {
               System Loss
             </h1>
           </div>
-          <button
+          <div className="flex flex-col items-end gap-2">
+            <button
             onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
           >
             {showForm ? "Cancel" : "+ Add Entry"}
           </button>
+            <CsvIO rows={rows} schema={systemLossCsvSchema()} onAfterImport={refresh} />
+          </div>
         </header>
 
-        {showForm && (
-          <form
-            onSubmit={handleSubmit}
-            className="mb-10 border border-[#2C3168] rounded-lg p-5 space-y-4"
-          >
+        <Modal
+          open={showForm}
+          onClose={resetForm}
+          title={editingId ? "Edit Entry" : "Add Entry"}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] block mb-1">
@@ -201,12 +215,13 @@ export default function SystemLossPage() {
                   kWh Purchased
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  min={0}
                   value={kwhPurchased}
-                  onChange={(e) => setKwhPurchased(e.target.value)}
-                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
+                  onChange={(e) => setKwhPurchased(formatWithCommas(e.target.value))}
+                  placeholder="0"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm font-mono tabular-nums"
                 />
               </div>
               <div>
@@ -214,12 +229,13 @@ export default function SystemLossPage() {
                   kWh Sold
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   required
-                  min={0}
                   value={kwhSold}
-                  onChange={(e) => setKwhSold(e.target.value)}
-                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm"
+                  onChange={(e) => setKwhSold(formatWithCommas(e.target.value))}
+                  placeholder="0"
+                  className="w-full bg-[#171A38] border border-[#2C3168] rounded px-3 py-2 text-sm font-mono tabular-nums"
                 />
               </div>
             </div>
@@ -238,7 +254,7 @@ export default function SystemLossPage() {
                   : "Add Entry"}
             </button>
           </form>
-        )}
+        </Modal>
 
         {/* Trend chart */}
         <div className="border border-[#2C3168] rounded-lg p-6 mb-10">
@@ -360,4 +376,38 @@ export default function SystemLossPage() {
       </div>
     </div>
   );
+}
+
+// ==================================================================
+//  CSV schema — system_loss
+// ==================================================================
+type SystemLossNew = { branch_id: string; period: string; kwh_purchased: number; kwh_sold: number };
+
+function systemLossCsvSchema(): CsvSchema<SystemLossRow, SystemLossNew> {
+  return {
+    filename: "system_loss.csv",
+    headers: ["branch_id", "period", "branch_name", "kwh_purchased", "kwh_sold", "system_loss_kwh", "system_loss_percent"],
+    serialize: (r) => [r.branch_id, r.period, r.branch_name, r.kwh_purchased, r.kwh_sold, r.system_loss_kwh, r.system_loss_percent],
+    templateRow: {
+      branch_id: "<uuid from branches>",
+      period: "2026-07-01",
+      branch_name: "(export-only)",
+      kwh_purchased: "1000000",
+      kwh_sold: "870000",
+      system_loss_kwh: "(derived; leave blank)",
+      system_loss_percent: "(derived; leave blank)",
+    },
+    parseRow: (rec) => {
+      const branch_id = (rec.branch_id || "").trim();
+      const period = (rec.period || "").trim();
+      if (!branch_id) throw new Error("branch_id is required");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(period)) throw new Error("period must be YYYY-MM-DD");
+      const kwh_purchased = Number(String(rec.kwh_purchased || "").replace(/,/g, ""));
+      const kwh_sold      = Number(String(rec.kwh_sold      || "").replace(/,/g, ""));
+      if (!isFinite(kwh_purchased) || kwh_purchased < 0) throw new Error("kwh_purchased must be a non-negative number");
+      if (!isFinite(kwh_sold)      || kwh_sold      < 0) throw new Error("kwh_sold must be a non-negative number");
+      return { branch_id, period, kwh_purchased, kwh_sold };
+    },
+    onImport: async (payload) => { await createSystemLoss(payload); },
+  };
 }

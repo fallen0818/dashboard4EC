@@ -1,7 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useDashboard } from '../hooks/useDashboard';
 import { useAuth } from '../hooks/useAuth';
+import {
+  PeriodMode,
+  PeriodRange,
+  getAvailablePeriods,
+} from '../services/dashboardRepository';
 
 function formatNumber(n: number): string {
   return n.toLocaleString('en-PH', { maximumFractionDigits: 0 });
@@ -22,7 +27,49 @@ function formatDuration(minutes: number): string {
 }
 
 export default function DashboardOverviewPage() {
-  const { summary, loading, error, refresh } = useDashboard();
+  const [mode, setMode] = useState<PeriodMode>('month');
+  const [months, setMonths] = useState<string[]>([]);   // YYYY-MM-01, newest first
+  const [years, setYears] = useState<number[]>([]);     // newest first
+  const [monthIdx, setMonthIdx] = useState(0);
+  const [yearIdx, setYearIdx] = useState(0);
+
+  // Load the list of periods that actually exist in the DB.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { months: m, years: y } = await getAvailablePeriods();
+        if (!cancelled) {
+          setMonths(m);
+          setYears(y);
+        }
+      } catch {
+        /* non-fatal — the hook will still show something */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Build the range currently in view; null while the picker is still empty.
+  const range: PeriodRange | null = React.useMemo(() => {
+    if (mode === 'month') {
+      const m = months[monthIdx];
+      if (!m) return null;
+      return { mode, from: m, to: addOneMonth(m), label: formatMonthLabel(m) };
+    }
+    const y = years[yearIdx];
+    if (!y) return null;
+    return {
+      mode,
+      from: `${y}-01-01`,
+      to: `${y + 1}-01-01`,
+      label: String(y),
+    };
+  }, [mode, months, monthIdx, years, yearIdx]);
+
+  const { summary, loading, error, refresh } = useDashboard(range);
 
   if (loading) {
     return (
@@ -62,16 +109,29 @@ export default function DashboardOverviewPage() {
   return (
     <div className="min-h-screen bg-[#08091C] text-[#F5F0FF]">
       <div className="max-w-4xl mx-auto px-6 py-14">
-        <header className="mb-10 border-b border-[#2C3168] pb-6 flex justify-between items-start">
+        <header className="mb-6 border-b border-[#2C3168] pb-6 flex justify-between items-start">
           <div>
             <p className="font-mono text-xs tracking-[0.2em] text-[#9CA3D9] uppercase mb-2">
               Cooperative Report · {summary.branchCount} Branches
             </p>
             <h1 className="text-3xl font-semibold tracking-tight">Dashboard Overview</h1>
-            <p className="font-mono text-xs text-[#9CA3D9] mt-2">{formatPeriod(summary.period)}</p>
+            <p className="font-mono text-xs text-[#9CA3D9] mt-2">
+              {range ? range.label : formatPeriod(summary.period)}
+            </p>
           </div>
           <SignOutButton />
         </header>
+
+        <PeriodNavigator
+          mode={mode}
+          setMode={setMode}
+          months={months}
+          years={years}
+          monthIdx={monthIdx}
+          setMonthIdx={setMonthIdx}
+          yearIdx={yearIdx}
+          setYearIdx={setYearIdx}
+        />
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
           {/* System Loss */}
@@ -223,4 +283,118 @@ function SignOutButton() {
       </button>
     </div>
   );
+}
+
+// ==================================================================
+//  Period navigator — month/year toggle + prev/next scroll
+// ==================================================================
+interface PeriodNavigatorProps {
+  mode: PeriodMode;
+  setMode: React.Dispatch<React.SetStateAction<PeriodMode>>;
+  months: string[];    // newest first, "YYYY-MM-01"
+  years: number[];     // newest first
+  monthIdx: number;
+  setMonthIdx: React.Dispatch<React.SetStateAction<number>>;
+  yearIdx: number;
+  setYearIdx: React.Dispatch<React.SetStateAction<number>>;
+}
+
+function PeriodNavigator({
+  mode,
+  setMode,
+  months,
+  years,
+  monthIdx,
+  setMonthIdx,
+  yearIdx,
+  setYearIdx,
+}: PeriodNavigatorProps) {
+  const list = mode === 'month' ? months : years;
+  const idx = mode === 'month' ? monthIdx : yearIdx;
+  const setIdx = mode === 'month' ? setMonthIdx : setYearIdx;
+
+  // Newest is at index 0; "next" (a newer period) DECREASES the index.
+  const canOlder = idx < list.length - 1;
+  const canNewer = idx > 0;
+
+  const label =
+    list.length === 0
+      ? 'No data yet'
+      : mode === 'month'
+        ? formatMonthLabel(months[monthIdx])
+        : String(years[yearIdx]);
+
+  return (
+    <section className="mb-8 flex flex-wrap items-center gap-3">
+      {/* Mode toggle */}
+      <div className="flex bg-[#171A38] border border-[#2C3168] rounded-md p-0.5">
+        {(['month', 'year'] as const).map((m) => {
+          const active = mode === m;
+          return (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`px-3 py-1 font-mono text-xs uppercase tracking-wide rounded transition-colors ${
+                active ? 'bg-[#F5F0FF] text-[#08091C]' : 'text-[#9CA3D9] hover:text-[#F5F0FF]'
+              }`}
+            >
+              {m}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Period scroller */}
+      <div className="flex items-center bg-[#171A38] border border-[#2C3168] rounded-md">
+        <button
+          onClick={() => canOlder && setIdx((i) => i + 1)}
+          disabled={!canOlder}
+          className="px-3 py-1 font-mono text-sm text-[#9CA3D9] hover:text-[#F5F0FF] disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label={`Previous ${mode}`}
+          title={`Previous ${mode}`}
+        >
+          ‹
+        </button>
+        <span className="px-4 py-1 font-mono text-sm min-w-[110px] text-center">
+          {label}
+        </span>
+        <button
+          onClick={() => canNewer && setIdx((i) => i - 1)}
+          disabled={!canNewer}
+          className="px-3 py-1 font-mono text-sm text-[#9CA3D9] hover:text-[#F5F0FF] disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label={`Next ${mode}`}
+          title={`Next ${mode}`}
+        >
+          ›
+        </button>
+      </div>
+
+      {/* Jump to latest */}
+      {idx > 0 && (
+        <button
+          onClick={() => setIdx(0)}
+          className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
+        >
+          Latest
+        </button>
+      )}
+    </section>
+  );
+}
+
+// ==================================================================
+//  Pure helpers
+// ==================================================================
+function formatMonthLabel(yyyymmdd: string): string {
+  const [y, m] = yyyymmdd.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+  });
+}
+
+function addOneMonth(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const next = new Date(Date.UTC(y, m, d));
+  return next.toISOString().slice(0, 10);
 }

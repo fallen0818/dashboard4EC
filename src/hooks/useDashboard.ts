@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import { DashboardSummary, getDashboardSummary } from '../services/dashboardRepository';
+import {
+  DashboardSummary,
+  PeriodRange,
+  getDashboardSummary,
+} from '../services/dashboardRepository';
 
-export function useDashboard() {
+export function useDashboard(range?: PeriodRange | null) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -10,7 +14,7 @@ export function useDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getDashboardSummary();
+      const data = await getDashboardSummary(range ?? undefined);
       setSummary(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -19,11 +23,13 @@ export function useDashboard() {
     }
   }
 
+  // Re-load whenever the range changes.
+  const rangeKey = range ? `${range.mode}:${range.from}:${range.to}` : '__latest__';
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await getDashboardSummary();
+        const data = await getDashboardSummary(range ?? undefined);
         if (!cancelled) {
           setSummary(data);
           setError(null);
@@ -37,7 +43,8 @@ export function useDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeKey]);
 
   return { summary, loading, error, refresh };
 }

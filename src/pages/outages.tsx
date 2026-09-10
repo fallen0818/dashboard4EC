@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useOutages } from '../hooks/useOutages';
 import { createOutage, updateOutage, deleteOutage, OutageRow } from '../services/outagesRepository';
+import CsvIO, { CsvSchema } from "../components/CsvIO";
 import { supabase } from '../services/supabaseClient';
 
 const CAUSE_COLORS = ['#FF4D6D', '#FFB84D', '#9CA3D9', '#4DA6FF', '#22F0B0'];
@@ -159,12 +160,15 @@ export default function OutagesPage() {
             </p>
             <h1 className="text-3xl font-semibold tracking-tight">Outages</h1>
           </div>
-          <button
+          <div className="flex flex-col items-end gap-2">
+            <button
             onClick={() => (showForm ? resetForm() : setShowForm(true))}
             className="font-mono text-xs uppercase tracking-wide text-[#9CA3D9] hover:text-[#F5F0FF] border border-[#2C3168] rounded px-3 py-1.5"
           >
             {showForm ? 'Cancel' : '+ Log Outage'}
           </button>
+            <CsvIO rows={rows} schema={outagesCsvSchema()} onAfterImport={refresh} />
+          </div>
         </header>
 
         {/* Summary cards */}
@@ -378,4 +382,45 @@ export default function OutagesPage() {
       </div>
     </div>
   );
+}
+
+// ==================================================================
+//  CSV schema — outages
+// ==================================================================
+type OutageNew = { branch_id: string; date: string; duration_minutes: number; cause: string; area_affected: string; consumers_affected: number };
+
+function outagesCsvSchema(): CsvSchema<OutageRow, OutageNew> {
+  return {
+    filename: "outages.csv",
+    headers: ["branch_id", "date", "branch_name", "duration_minutes", "cause", "area_affected", "consumers_affected"],
+    serialize: (r) => [r.branch_id, r.date, r.branch_name, r.duration_minutes, r.cause ?? "", r.area_affected ?? "", r.consumers_affected],
+    templateRow: {
+      branch_id: "<uuid from branches>",
+      date: "2026-07-15",
+      branch_name: "(export-only)",
+      duration_minutes: "120",
+      cause: "Typhoon",
+      area_affected: "Feeder 3",
+      consumers_affected: "1500",
+    },
+    parseRow: (rec) => {
+      const branch_id = (rec.branch_id || "").trim();
+      const date = (rec.date || "").trim();
+      if (!branch_id) throw new Error("branch_id is required");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("date must be YYYY-MM-DD");
+      const duration_minutes = Number(String(rec.duration_minutes || "0").replace(/,/g, ""));
+      const consumers_affected = Number(String(rec.consumers_affected || "0").replace(/,/g, ""));
+      if (!isFinite(duration_minutes) || duration_minutes < 0) throw new Error("duration_minutes must be a non-negative number");
+      if (!isFinite(consumers_affected) || consumers_affected < 0) throw new Error("consumers_affected must be a non-negative integer");
+      return {
+        branch_id,
+        date,
+        duration_minutes: Math.round(duration_minutes),
+        cause: (rec.cause || "").trim(),
+        area_affected: (rec.area_affected || "").trim(),
+        consumers_affected: Math.round(consumers_affected),
+      };
+    },
+    onImport: async (payload) => { await createOutage(payload); },
+  };
 }
