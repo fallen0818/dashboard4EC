@@ -266,6 +266,16 @@ export default function DashboardOverviewPage() {
             </div>
             <span className="text-[#6C74A8] group-hover:text-[#F5F0FF] transition-colors">→</span>
           </Link>
+          <Link
+            href="/analytics"
+            className="flex justify-between items-center border border-[#2C3168] rounded-lg px-5 py-4 hover:bg-[#171A38] transition-colors group"
+          >
+            <div>
+              <p className="text-sm font-medium">Analytics</p>
+              <p className="font-mono text-xs text-[#9CA3D9] mt-0.5">KPI trends, supplier mix, cross-cutting views</p>
+            </div>
+            <span className="text-[#6C74A8] group-hover:text-[#F5F0FF] transition-colors">→</span>
+          </Link>
         </div>
       </div>
     </div>
