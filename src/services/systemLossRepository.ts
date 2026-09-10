@@ -35,7 +35,7 @@ export async function getSystemLossHistory(): Promise<SystemLossRow[]> {
       system_loss_kwh, system_loss_percent,
       branches ( name )
     `)
-    .order('period_start', { ascending: true });
+    .order('period_start', { ascending: false });
 
   if (error) throw new Error(`Failed to fetch system loss history: ${error.message}`);
 
